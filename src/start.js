@@ -17,7 +17,7 @@ export default function start(program) {
         // load config
         let config;
         try {
-            const configJson = fs.readFileSync(path.join(__dirname, 'raisely.json'));
+            const configJson = fs.readFileSync(path.join(process.cwd(), 'raisely.json'));
             config = JSON.parse(configJson);
         } catch(e) {
             return error(`No raisely.json found. Run ${chalk.bold.underline.white('raisely init')} to start.`);
@@ -26,13 +26,13 @@ export default function start(program) {
         welcome();
         log(`Watching and uploading changes in this directory`, 'white');
         br();
-        console.log(`    ${chalk.inverse(`${__dirname}`)}`);
+        console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
         br();
         log(`Use CTRL + C to stop`, 'white');
 
         // watch folders
-        const stylesDir = path.join(__dirname, 'stylesheets');
-        const componentsDir = path.join(__dirname, 'components');
+        const stylesDir = path.join(process.cwd(), 'stylesheets');
+        const componentsDir = path.join(process.cwd(), 'components');
         fs.watch(stylesDir, { encoding: 'utf8' }, async (eventType, filename) => {
 
             const loader = ora(`Saving ${filename}`).start();

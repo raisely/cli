@@ -24,7 +24,7 @@ program
         welcome();
         log(`You're about to initialize a Raisely campaign in this directory`, 'white')
         br();
-        console.log(`    ${chalk.inverse(`${__dirname}`, 'inverse')}`);
+        console.log(`    ${chalk.inverse(`${process.cwd()}`, 'inverse')}`);
         br();
         log(`Log in to your Raisely account to start:`, 'white');
         br();

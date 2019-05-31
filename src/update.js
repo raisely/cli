@@ -20,7 +20,7 @@ export default function update(program) {
         welcome();
         log(`You are about to update the styles and components in this directory`, 'white')
         br();
-        console.log(`    ${chalk.inverse(`${__dirname}`)}`);
+        console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
         br();
         log(`You will lose any unsaved changes.`, 'white');
         br();
@@ -43,17 +43,17 @@ export default function update(program) {
         // load config
         let config;
         try {
-            const configJson = fs.readFileSync(path.join(__dirname, 'raisely.json'));
+            const configJson = fs.readFileSync(path.join(process.cwd(), 'raisely.json'));
             config = JSON.parse(configJson);
         } catch(e) {
             return error(`No raisely.json found. Run ${chalk.bold.underline.white('raisely init')} to start.`);
         }
 
         // sync down campaign stylesheets
-        await syncStyles(config, __dirname);
+        await syncStyles(config, process.cwd());
 
         // sync down custom components
-        await syncComponents(config, __dirname);
+        await syncComponents(config, process.cwd());
 
         br();
         log(`All done! Run ${chalk.bold.underline.white('raisely start')} to begin.`, 'green');

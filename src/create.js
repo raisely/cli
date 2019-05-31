@@ -17,7 +17,7 @@ export default function create(program) {
         // load config
         let config;
         try {
-            const configJson = fs.readFileSync(path.join(__dirname, 'raisely.json'));
+            const configJson = fs.readFileSync(path.join(process.cwd(), 'raisely.json'));
             config = JSON.parse(configJson);
         } catch(e) {
             return error(`No raisely.json found. Run ${chalk.bold.underline.white('raisely init')} to start.`);
@@ -26,7 +26,7 @@ export default function create(program) {
         welcome();
         log(`You are creating a new custom component. The component will be downloaded to:`, 'white')
         br();
-        console.log(`    ${chalk.inverse(`${__dirname}`)}`);
+        console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
         br();
 
         // get component name
@@ -52,7 +52,7 @@ export default function create(program) {
         }
 
         // sync down custom components
-        await syncComponents(config, __dirname, response.name);
+        await syncComponents(config, process.cwd(), response.name);
 
         br();
         log(`All done! Run ${chalk.bold.underline.white('raisely start')} to begin.`, 'green');

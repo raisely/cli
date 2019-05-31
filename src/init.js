@@ -20,7 +20,7 @@ export default function init(program) {
         welcome();
         log(`You're about to initialize a Raisely campaign in this directory`, 'white')
         br();
-        console.log(`    ${chalk.inverse(`${__dirname}`)}`);
+        console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
         br();
         log(`Log in to your Raisely account to start:`, 'white');
         br();
@@ -82,14 +82,14 @@ export default function init(program) {
             token: data.token,
             campaigns: campaigns.campaigns
         }
-        fs.writeFileSync(path.join(__dirname, 'raisely.json'), JSON.stringify(config, null, 4));
+        fs.writeFileSync(path.join(process.cwd(), 'raisely.json'), JSON.stringify(config, null, 4));
         configLoader.succeed();
 
         // sync down campaign stylesheets
-        await syncStyles(config, __dirname);
+        await syncStyles(config, process.cwd());
 
         // sync down custom components
-        await syncComponents(config, __dirname);
+        await syncComponents(config, process.cwd());
 
         br();
         log('All done! You can start development by running:', 'green');
