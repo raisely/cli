@@ -19,7 +19,7 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 
 ## Getting Started
 
-1. Install the CLI globally: `npm install raisely-cli -g`
+1. Install the CLI globally: `npm install @raisely/cli -g`
 2. Go into your working directory and run: `raisely init`
 
 ## Commands
