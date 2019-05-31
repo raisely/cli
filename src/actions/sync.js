@@ -50,7 +50,7 @@ export async function syncComponents(config, workDir, filter) {
         
         for (const component of components.data) {
 
-            if (component.name !== filter) continue;
+            if (filter && component.name !== filter) continue;
 
             // make component directory
             const componentDir = path.join(directory, component.name);
