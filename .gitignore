@@ -1,0 +1,7 @@
+node_modules
+.DS_Store
+raisely.json
+
+# dev folders
+stylesheets
+components
