@@ -45,7 +45,7 @@ export default function create(program) {
         // save component
         const componentLoader = ora(`Creating custom component called "${response.name}"...`)
         try {
-            await createComponent(response, config.token);
+            await createComponent(response, config);
             componentLoader.succeed();
         } catch(e) {
             return error(e, componentLoader);

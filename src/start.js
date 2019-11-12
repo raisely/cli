@@ -28,6 +28,11 @@ export default function start(program) {
         br();
         console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
         br();
+        if (config.apiUrl) {
+            br();
+            console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
+            br();
+        }
         log(`Use CTRL + C to stop`, 'white');
 
         // watch folders
@@ -39,7 +44,7 @@ export default function start(program) {
             await updateStyles({
                 path: filename.replace('.scss', ''),
                 css: fs.readFileSync(path.join(stylesDir, filename), 'utf8')
-            }, config.token)
+            }, config)
             loader.succeed();
 
         });
@@ -53,15 +58,15 @@ export default function start(program) {
                         filename,
                         file: fs.readFileSync(path.join(componentsDir, filename.replace('.json', '.js')), 'utf8'),
                         config: JSON.parse(fs.readFileSync(path.join(componentsDir, filename), 'utf8'))
-                    }, config.token)
+                    }, config)
                 } else {
                     const result = await updateComponentFile({
                         filename,
                         file: fs.readFileSync(path.join(componentsDir, filename), 'utf8'),
                         config: JSON.parse(fs.readFileSync(path.join(componentsDir, filename.replace('.js', '.json')), 'utf8'))
-                    }, config.token);
+                    }, config);
                 }
-            } catch(e) {                
+            } catch(e) {  
                 return error(e, loader);
             }
             

@@ -7,7 +7,8 @@ import create from './create';
 
 export async function cli(args) {
 
-    program.version('1.0.0');
+    program.version('1.0.4');
+    program.option('-a, --api <api>', 'custom api url')
 
     init(program);
     update(program);

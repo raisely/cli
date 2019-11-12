@@ -16,7 +16,7 @@ export default function init(program) {
     .action(async (dir, cmd) => {
 
         const data = {};
-
+        
         welcome();
         log(`You're about to initialize a Raisely campaign in this directory`, 'white')
         br();
@@ -45,7 +45,7 @@ export default function init(program) {
         // log the user in
         const loginLoader = ora('Logging you in...').start();
         try {
-            data.user = await login(credentials);
+            data.user = await login(credentials, { apiUrl: program.api });
             data.token = data.user.token;
             loginLoader.succeed();
         } catch(e) {
@@ -55,7 +55,7 @@ export default function init(program) {
         // load the campaigns
         const campaignsLoader = ora('Loading your campaigns...').start();
         try {
-            data.campaigns = await getCampaigns({}, data.token);
+            data.campaigns = await getCampaigns({}, data.token, { apiUrl: program.api });
             campaignsLoader.succeed();
         } catch(e) {
             return error(e, campaignsLoader);
@@ -82,6 +82,7 @@ export default function init(program) {
             token: data.token,
             campaigns: campaigns.campaigns
         }
+        if (program.api) config.apiUrl = program.api;
         fs.writeFileSync(path.join(process.cwd(), 'raisely.json'), JSON.stringify(config, null, 4));
         configLoader.succeed();
 
