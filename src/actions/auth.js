@@ -7,5 +7,5 @@ export async function login({ username, password }) {
         json: {
             username, password
         }
-    })
+    }, config.apiUrl)
 }

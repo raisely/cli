@@ -7,7 +7,7 @@ export async function getCampaigns({ organisationId }, token) {
         auth: {
             bearer: token
         }
-    })
+    }, config.apiUrl)
 }
 
 export async function updateStyles({ path, css }, token) {
@@ -18,7 +18,7 @@ export async function updateStyles({ path, css }, token) {
         auth: {
             bearer: token
         }
-    });
+    }, config.apiUrl);
     return await api({
         path: `/campaigns/${path}/config/css`,
         qs: { private: 1 },
@@ -31,5 +31,5 @@ export async function updateStyles({ path, css }, token) {
         auth: {
             bearer: token
         }
-    })
+    }, config.apiUrl)
 }

@@ -8,7 +8,7 @@ async function getComponent(uuid, token) {
         auth: {
             bearer: token
         }
-    })
+    }, config.apiUrl)
 }
 
 export async function createComponent({ name }, token) {
@@ -18,7 +18,7 @@ export async function createComponent({ name }, token) {
         auth: {
             bearer: token
         }
-    });
+    }, config.apiUrl);
     return await api({
         path: `/components`,
         qs: { private: 1 },
@@ -32,7 +32,7 @@ export async function createComponent({ name }, token) {
         auth: {
             bearer: token
         }
-    })
+    }, config.apiUrl)
 }
 
 export async function updateComponentConfig({ file, config }, token) {
@@ -56,7 +56,7 @@ export async function updateComponentConfig({ file, config }, token) {
         auth: {
             bearer: token
         }
-    })
+    }, config.apiUrl)
 }
 
 export async function updateComponentFile({ file, config }, token) {
@@ -81,5 +81,5 @@ export async function updateComponentFile({ file, config }, token) {
         auth: {
             bearer: token
         }
-    })
+    }, config.apiUrl)
 }
