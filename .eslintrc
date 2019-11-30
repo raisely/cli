@@ -1,0 +1,20 @@
+{
+  "parser": "babel-eslint",
+  "extends": [
+    "eslint:recommended",
+  ],
+  "env": {
+    "browser": true,
+    "es6": true,
+    "node": true
+  },
+  "rules": {
+    "no-mixed-spaces-and-tabs": "warn",
+    "require-yield": "off",
+    "no-unmodified-loop-condition": "error",
+    "no-void": "error",
+    "one-var": ["error", "never"],
+    "no-extra-boolean-cast": "off",
+    "no-shadow": ["warn"],
+  }
+}
