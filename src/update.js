@@ -1,21 +1,15 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import ora from 'ora';
-import fs from 'fs';
-import path from 'path';
 
-import { welcome, log, br, error } from './helpers';
-import { login } from './actions/auth';
-import { getCampaigns } from './actions/campaigns';
+import { welcome, log, br } from './helpers';
 import { syncStyles, syncComponents } from './actions/sync';
+import { loadConfig } from './config';
 
 export default function update(program) {
 
     program
     .command('update')
     .action(async (dir, cmd) => {
-
-        const data = {};
 
         welcome();
         log(`You are about to update the styles and components in this directory`, 'white')
@@ -41,13 +35,7 @@ export default function update(program) {
         }
 
         // load config
-        let config;
-        try {
-            const configJson = fs.readFileSync(path.join(process.cwd(), 'raisely.json'));
-            config = JSON.parse(configJson);
-        } catch(e) {
-            return error(`No raisely.json found. Run ${chalk.bold.underline.white('raisely init')} to start.`);
-        }
+        const config = await loadConfig();
 
         // sync down campaign stylesheets
         await syncStyles(config, process.cwd());

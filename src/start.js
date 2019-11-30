@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import inquirer from 'inquirer';
 import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
@@ -7,6 +6,7 @@ import path from 'path';
 import { welcome, log, br, error } from './helpers';
 import { updateStyles } from './actions/campaigns';
 import { updateComponentFile, updateComponentConfig } from './actions/components';
+import { loadConfig } from './config';
 
 export default function start(program) {
 
@@ -14,16 +14,11 @@ export default function start(program) {
     .command('start')
     .action(async (dir, cmd) => {
 
-        // load config
-        let config;
-        try {
-            const configJson = fs.readFileSync(path.join(process.cwd(), 'raisely.json'));
-            config = JSON.parse(configJson);
-        } catch(e) {
-            return error(`No raisely.json found. Run ${chalk.bold.underline.white('raisely init')} to start.`);
-        }
-
         welcome();
+
+        // load config
+        const config = await loadConfig();
+
         log(`Watching and uploading changes in this directory`, 'white');
         br();
         console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
