@@ -19,7 +19,7 @@ export async function syncStyles(config, workDir) {
                 auth: {
                     bearer: config.token
                 }
-            });
+            }, config.apiUrl);
 
             fs.writeFileSync(path.join(directory, `${campaign.data.path}.scss`), campaign.data.config.css.custom_css);
         }
@@ -46,7 +46,7 @@ export async function syncComponents(config, workDir, filter) {
             auth: {
                 bearer: config.token
             }
-        });
+        }, config.apiUrl);
         
         for (const component of components.data) {
 
