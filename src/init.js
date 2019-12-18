@@ -1,13 +1,12 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import ora from 'ora';
-import fs from 'fs';
-import path from 'path';
 
 import { welcome, log, br, error } from './helpers';
 import { login } from './actions/auth';
 import { getCampaigns } from './actions/campaigns';
 import { syncStyles, syncComponents } from './actions/sync';
+import { saveConfig } from './config';
 
 export default function init(program) {
 
@@ -76,15 +75,12 @@ export default function init(program) {
                 }
             ])
 
-        // write the raisely.json config file
-        const configLoader = ora('Saving settings to raisely.json...').start()
         const config = {
             token: data.token,
             campaigns: campaigns.campaigns
-        }
+        };
         if (program.api) config.apiUrl = program.api;
-        fs.writeFileSync(path.join(process.cwd(), 'raisely.json'), JSON.stringify(config, null, 4));
-        configLoader.succeed();
+        await saveConfig(config);
 
         // sync down campaign stylesheets
         await syncStyles(config, process.cwd());

@@ -1,13 +1,9 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import ora from 'ora';
-import fs from 'fs';
-import path from 'path';
 
-import { welcome, log, br, error } from './helpers';
-import { login } from './actions/auth';
-import { getCampaigns } from './actions/campaigns';
+import { welcome, log, br } from './helpers';
 import { syncStyles, syncComponents } from './actions/sync';
+import { loadConfig } from './config';
 
 export default function update(program) {
 
