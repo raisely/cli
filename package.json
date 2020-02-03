@@ -1,37 +1,37 @@
 {
-  "name": "@raisely/cli",
-  "version": "1.1.0",
-  "description": "Raisely CLI for local development",
-  "main": "./src/cli.js",
-  "bin": {
-    "raisely": "./bin/raisely"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Raisely",
-  "license": "SEE LICENSE IN LICENSE.md",
-  "dependencies": {
-    "chalk": "^2.4.2",
-    "commander": "^2.20.0",
-    "esm": "^3.2.25",
-    "inquirer": "^6.3.1",
-    "lodash": "^4.17.11",
-    "ora": "^3.4.0",
-    "request": "^2.88.0",
-    "request-promise-native": "^1.0.7"
-  },
-  "devDependencies": {},
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/raisely/cli.git"
-  },
-  "keywords": [
-    "cli",
-    "raisely"
-  ],
-  "bugs": {
-    "url": "https://github.com/raisely/cli/issues"
-  },
-  "homepage": "https://github.com/raisely/cli#readme"
+	"name": "@raisely/cli",
+	"version": "1.1.1",
+	"description": "Raisely CLI for local development",
+	"main": "./src/cli.js",
+	"bin": {
+		"raisely": "./bin/raisely"
+	},
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "Raisely",
+	"license": "SEE LICENSE IN LICENSE.md",
+	"dependencies": {
+		"chalk": "^2.4.2",
+		"commander": "^2.20.0",
+		"esm": "^3.2.25",
+		"inquirer": "^6.3.1",
+		"lodash": "^4.17.11",
+		"ora": "^3.4.0",
+		"request": "^2.88.0",
+		"request-promise-native": "^1.0.7"
+	},
+	"devDependencies": {},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/raisely/cli.git"
+	},
+	"keywords": [
+		"cli",
+		"raisely"
+	],
+	"bugs": {
+		"url": "https://github.com/raisely/cli/issues"
+	},
+	"homepage": "https://github.com/raisely/cli#readme"
 }

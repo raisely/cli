@@ -1,20 +1,18 @@
-import program from 'commander';
+import program from "commander";
 
-import init from './init';
-import update from './update';
-import start from './start';
-import create from './create';
+import init from "./init";
+import update from "./update";
+import start from "./start";
+import create from "./create";
 
 export async function cli(args) {
+	program.version("1.1.1");
+	program.option("-a, --api <api>", "custom api url");
 
-    program.version('1.0.4');
-    program.option('-a, --api <api>', 'custom api url')
+	init(program);
+	update(program);
+	start(program);
+	create(program);
 
-    init(program);
-    update(program);
-    start(program);
-    create(program);
-
-    program.parse(process.argv);
-
+	program.parse(process.argv);
 }

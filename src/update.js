@@ -1,64 +1,71 @@
-import chalk from 'chalk';
-import inquirer from 'inquirer';
+import chalk from "chalk";
+import inquirer from "inquirer";
 
-import { welcome, log, br } from './helpers';
-import { syncStyles, syncComponents } from './actions/sync';
-import { loadConfig } from './config';
+import { welcome, log, br } from "./helpers";
+import { syncStyles, syncComponents } from "./actions/sync";
+import { loadConfig } from "./config";
 
 export default function update(program) {
+	program.command("update").action(async (dir, cmd) => {
+		// load config
+		let config;
+		try {
+			const configJson = fs.readFileSync(
+				path.join(process.cwd(), "raisely.json")
+			);
+			config = JSON.parse(configJson);
+		} catch (e) {
+			return error(
+				`No raisely.json found. Run ${chalk.bold.underline.white(
+					"raisely init"
+				)} to start.`
+			);
+		}
 
-    program
-    .command('update')
-    .action(async (dir, cmd) => {
+		const data = {};
 
-        // load config
-        let config;
-        try {
-            const configJson = fs.readFileSync(path.join(process.cwd(), 'raisely.json'));
-            config = JSON.parse(configJson);
-        } catch(e) {
-            return error(`No raisely.json found. Run ${chalk.bold.underline.white('raisely init')} to start.`);
-        }
+		welcome();
+		log(
+			`You are about to update the styles and components in this directory`,
+			"white"
+		);
+		br();
+		console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
+		br();
+		if (config.apiUrl) {
+			br();
+			console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
+			br();
+		}
+		log(`You will lose any unsaved changes.`, "white");
+		br();
 
-        const data = {};
+		// collect login details
+		const response = await inquirer.prompt([
+			{
+				type: "confirm",
+				name: "confirm",
+				message: "Are you sure you want to continue?"
+			}
+		]);
 
-        welcome();
-        log(`You are about to update the styles and components in this directory`, 'white')
-        br();
-        console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
-        br();
-        if (config.apiUrl) {
-            br();
-            console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
-            br();
-        }
-        log(`You will lose any unsaved changes.`, 'white');
-        br();
+		if (!response.confirm) {
+			br();
+			return log("Update aborted", "red");
+		}
 
-        // collect login details
-        const response = await inquirer
-            .prompt([
-                {
-                    type: 'confirm',
-                    name: 'confirm',
-                    message: 'Are you sure you want to continue?',
-                }
-            ]);
+		// sync down campaign stylesheets
+		await syncStyles(config, process.cwd());
 
-        if (!response.confirm) {
-            br();
-            return log('Update aborted', 'red');
-        }
+		// sync down custom components
+		await syncComponents(config, process.cwd());
 
-        // sync down campaign stylesheets
-        await syncStyles(config, process.cwd());
-
-        // sync down custom components
-        await syncComponents(config, process.cwd());
-
-        br();
-        log(`All done! Run ${chalk.bold.underline.white('raisely start')} to begin.`, 'green');
-
-    })
-
+		br();
+		log(
+			`All done! Run ${chalk.bold.underline.white(
+				"raisely start"
+			)} to begin.`,
+			"green"
+		);
+	});
 }
