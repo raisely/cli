@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import inquirer from "inquirer";
 
-import { welcome, log, br } from "./helpers";
+import { welcome, log, br, error } from "./helpers";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { loadConfig } from "./config";
 
