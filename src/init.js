@@ -52,7 +52,6 @@ export default function init(program) {
 				{ apiUrl: program.api }
 			);
 			data.token = data.user.token;
-			console.log(data);
 			loginLoader.succeed();
 		} catch (e) {
 			return error(e, loginLoader);
