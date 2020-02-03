@@ -13,7 +13,7 @@ export function welcome() {
 	log(
 		`
 ******************************
-Raisely CLI (1.1.1)
+Raisely CLI (1.1.2)
 ******************************
         `,
 		"magenta"
