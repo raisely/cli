@@ -13,7 +13,7 @@ export async function getCampaigns({ organisationId }, token, opts = {}) {
 	);
 }
 
-export async function updateStyles({ path, css }, config) {
+export async function updateStyles({ path, files, css }, config) {
 	const campaign = await api(
 		{
 			path: `/campaigns/${path}`,
@@ -25,15 +25,19 @@ export async function updateStyles({ path, css }, config) {
 		},
 		config.apiUrl
 	);
+
+	const data = Object.assign({}, campaign.data.config.css, {
+		files,
+		custom_css: css
+	});
+
 	return await api(
 		{
 			path: `/campaigns/${path}/config/css`,
 			qs: { private: 1 },
 			method: "PATCH",
 			json: {
-				data: Object.assign(campaign.data.config.css, {
-					custom_css: css
-				})
+				data
 			},
 			auth: {
 				bearer: config.token

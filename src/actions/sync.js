@@ -24,8 +24,37 @@ export async function syncStyles(config, workDir) {
 				config.apiUrl
 			);
 
+			const campaignDir = path.join(directory, campaign.data.path);
+
+			if (!fs.existsSync(campaignDir)) {
+				fs.mkdirSync(campaignDir);
+			}
+
+			if (campaign.data.config.css.files) {
+				const files = campaign.data.config.css.files;
+
+				for (const file of Object.keys(
+					campaign.data.config.css.files
+				)) {
+					const fileFolder = file
+						.split("/")
+						.filter(f => !f.includes("."));
+					const fileName = file
+						.split("/")
+						.filter(f => f.includes("."))
+						.join("");
+					const fileDir = path.join(campaignDir, ...fileFolder);
+
+					if (!fs.existsSync(fileDir)) {
+						fs.mkdirSync(fileDir, { recursive: true });
+					}
+
+					fs.writeFileSync(path.join(fileDir, fileName), files[file]);
+				}
+			}
+
 			fs.writeFileSync(
-				path.join(directory, `${campaign.data.path}.scss`),
+				path.join(campaignDir, `${campaign.data.path}.scss`),
 				campaign.data.config.css.custom_css
 			);
 		}

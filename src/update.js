@@ -8,19 +8,7 @@ import { loadConfig } from "./config";
 export default function update(program) {
 	program.command("update").action(async (dir, cmd) => {
 		// load config
-		let config;
-		try {
-			const configJson = fs.readFileSync(
-				path.join(process.cwd(), "raisely.json")
-			);
-			config = JSON.parse(configJson);
-		} catch (e) {
-			return error(
-				`No raisely.json found. Run ${chalk.bold.underline.white(
-					"raisely init"
-				)} to start.`
-			);
-		}
+		let config = await loadConfig();
 
 		const data = {};
 
