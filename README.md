@@ -30,6 +30,19 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 -   `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
 -   `raisely start` - starts watching for and uploading changes to styles and components
 
+## CI/CD Usage
+
+Raisely CLI supports usage in a CI/CD environment for auto-deployment of styles and components. In this scenario you would use the CLI to deploy local code, and overwrite what is on a Raisely campaign or account.
+
+Raisely CLI supports the following environment variables:
+
+-   `RAISELY_TOKEN` – your API secret key
+-   `RAISELY_CAMPAIGNS` - a comma-separated list of campaign uuids to sync (so you can be selective)
+
+_Note: All components are always synced, when they're present in the directory your syncing_
+
+With these environment variables set, run: `raisely deploy`. This will sync your local directory to the remote Raisely account, overwriting the styles and components on the destination campaign.
+
 ## Developing
 
 Contributions are welcome. The project is built with `commander`, `inquirer` and `ora` with a basic module structure.

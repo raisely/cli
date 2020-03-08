@@ -1,3 +1,6 @@
+import glob from "glob-promise";
+import path from "path";
+import fs from "fs";
 import api from "./api";
 
 export async function getCampaigns({ organisationId }, token, opts = {}) {
@@ -10,6 +13,52 @@ export async function getCampaigns({ organisationId }, token, opts = {}) {
 			}
 		},
 		opts.apiUrl
+	);
+}
+
+export async function getCampaign({ uuid }, token, opts = {}) {
+	return await api(
+		{
+			path: `/campaigns/${uuid}`,
+			method: "GET",
+			auth: {
+				bearer: token
+			}
+		},
+		opts.apiUrl
+	);
+}
+
+export async function buildStyles(filename, config) {
+	const stylesDir = path.join(process.cwd(), "stylesheets");
+	const filePath = filename.split("/")[0];
+
+	const files = await glob(`${path.join(stylesDir, filePath)}/**/*.scss`);
+
+	const configFiles = {};
+	for (const file of files) {
+		const fileName = file
+			.replace(`${stylesDir}/`, "")
+			.replace(`${filePath}/`, "");
+
+		// continue if this is the main stylesheet
+		if (fileName === `${filePath}.scss`) continue;
+
+		configFiles[
+			file.replace(`${stylesDir}/`, "").replace(`${filePath}/`, "")
+		] = fs.readFileSync(file, "utf8");
+	}
+
+	await updateStyles(
+		{
+			path: filePath,
+			files: configFiles,
+			css: fs.readFileSync(
+				path.join(stylesDir, filePath, `${filePath}.scss`),
+				"utf8"
+			)
+		},
+		config
 	);
 }
 

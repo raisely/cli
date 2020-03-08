@@ -78,6 +78,17 @@ async function hideFile() {
 
 export async function loadConfig() {
 	let config;
+
+	if (process.env.RAISELY_TOKEN) {
+		log("RAISELY_TOKEN found, using environment variables");
+		return {
+			token: process.env.RAISELY_TOKEN,
+			cli: true,
+			apiUrl: process.env.RAISELY_API_URL,
+			campaigns: process.env.RAISELY_CAMPAIGNS.split(",")
+		};
+	}
+
 	try {
 		config = readConfig(CONFIG_FILE);
 	} catch (e) {
