@@ -46,3 +46,19 @@ With these environment variables set, run: `raisely deploy`. This will sync your
 ## Developing
 
 Contributions are welcome. The project is built with `commander`, `inquirer` and `ora` with a basic module structure.
+
+### Local Development With Docker
+
+Create a `.env` file in this directory containing:
+
+RAISELY_TOKEN=<your API secret key>
+
+RAISELY_CAMPAIGNS=<a comma-separated list of campaign uuids to sync>
+
+then run `docker-compose up` from this directory.
+
+In a new terminal window connect to the docker container:
+
+`docker exec -it raisely-cli /bin/bash`
+
+A Makefile provides tasks

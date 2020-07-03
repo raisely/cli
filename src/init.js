@@ -5,7 +5,7 @@ import ora from "ora";
 import { welcome, log, br, error } from "./helpers";
 import { login } from "./actions/auth";
 import { getCampaigns } from "./actions/campaigns";
-import { syncStyles, syncComponents } from "./actions/sync";
+import { syncStyles, syncComponents, syncPages } from "./actions/sync";
 import { saveConfig } from "./config";
 
 export default function init(program) {
@@ -94,6 +94,9 @@ export default function init(program) {
 
 		// sync down custom components
 		await syncComponents(config, process.cwd());
+
+		// sync down pages
+		await syncPages(config, process.cwd());
 
 		br();
 		log("All done! You can start development by running:", "green");

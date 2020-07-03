@@ -1,0 +1,15 @@
+version: '2'
+
+services:
+
+  raisely_cli:
+    container_name: "raisely_cli"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ".:/var/local"
+    environment:
+      - RAISELY_TOKEN=${RAISELY_TOKEN}
+      - RAISELY_CAMPAIGNS=${RAISELY_CAMPAIGNS}
+    restart: always

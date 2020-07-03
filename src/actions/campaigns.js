@@ -95,3 +95,21 @@ export async function updateStyles({ path, files, css }, config) {
 		config.apiUrl
 	);
 }
+
+
+export async function updatePage(page, config) {
+	return await api(
+		{
+			path: `/pages/${page.uuid}?private=true`,
+			method: "PATCH",
+			json: {
+				data: page.data
+			},
+			auth: {
+				bearer: config.token
+			}
+		},
+		config.apiUrl
+	);
+
+}
