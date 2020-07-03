@@ -5,7 +5,7 @@ import path from "path";
 import glob from "glob-promise";
 
 import { welcome, log, br, error } from "./helpers";
-import { updateStyles, buildStyles } from "./actions/campaigns";
+import { updateStyles, buildStyles, updatePage } from "./actions/campaigns";
 import {
 	updateComponentFile,
 	updateComponentConfig
@@ -33,6 +33,7 @@ export default function start(program) {
 		// watch folders
 		const stylesDir = path.join(process.cwd(), "stylesheets");
 		const componentsDir = path.join(process.cwd(), "components");
+		const pagesDir = path.join(process.cwd(), "pages");
 		fs.watch(
 			stylesDir,
 			{ encoding: "utf8", recursive: true },
@@ -99,5 +100,26 @@ export default function start(program) {
 				loader.succeed();
 			}
 		);
+
+		fs.watch(
+			pagesDir,
+			{ encoding: "utf8", recursive: true },
+			async (eventType, filename) => {
+				const loader = ora(`Saving ${filename}`).start();
+				try {
+					const pageData = JSON.parse(fs.readFileSync(
+						path.join(pagesDir, `${filename}`),
+						"utf8"
+					))
+					await updatePage(pageData, config);
+				} catch (e) {
+					return error(e, loader);
+				}
+
+				loader.succeed();
+			}
+		);
+
+
 	});
 }

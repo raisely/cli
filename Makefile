@@ -1,4 +1,4 @@
-.PHONY: init update deploy
+.PHONY: init update deploy start
 
 init:
 	npm install
@@ -8,4 +8,8 @@ update:
 	node ./bin/raisely update
 
 deploy:
-	node ./bin/raisely deploy	
+	node ./bin/raisely deploy
+
+start:
+	node ./bin/raisely start	
+

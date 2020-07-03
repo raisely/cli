@@ -2,13 +2,13 @@
 
 ![Raisely logo](https://raisely-themes.imgix.net/raisely/brand.raisely.svg)
 
-The Raisely CLI is used to power local development of Raisely themes, syncing custom components and campaign styles to your local machine.
+The Raisely CLI is used to power local development of Raisely themes, syncing custom components, campaign styles and pages to your local machine.
 
 For more about Raisely, see <https://raisely.com>
 
 ## Overview
 
-The Raisely CLI allows for fast and easy development on the Raisely platform. The CLI allows you to connect a directory on your local computer to a Raisely account. With the CLI you can update campaign stylesheets, and edit and create custom React components.
+The Raisely CLI allows for fast and easy development on the Raisely platform. The CLI allows you to connect a directory on your local computer to a Raisely account. With the CLI you can update campaign stylesheets, pages and edit and create custom React components.
 
 The CLI is built on Node.js, so you'll need Node.js installed to use it.
 
@@ -26,9 +26,9 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 ## Commands
 
 -   `raisely init` - start a new Raisely project, authenticate and sync your campaigns
--   `raisely update` - update local copies of styles and components from the API
+-   `raisely update` - update local copies of styles, pages and components from the API
 -   `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
--   `raisely start` - starts watching for and uploading changes to styles and components
+-   `raisely start` - starts watching for and uploading changes to styles, pages and components
 
 ## CI/CD Usage
 
@@ -41,7 +41,7 @@ Raisely CLI supports the following environment variables:
 
 _Note: All components are always synced, when they're present in the directory your syncing_
 
-With these environment variables set, run: `raisely deploy`. This will sync your local directory to the remote Raisely account, overwriting the styles and components on the destination campaign.
+With these environment variables set, run: `raisely deploy`. This will sync your local directory to the remote Raisely account, overwriting the styles, pages and components on the destination campaign.
 
 ## Developing
 
@@ -49,11 +49,11 @@ Contributions are welcome. The project is built with `commander`, `inquirer` and
 
 ### Local Development With Docker
 
-Create a `.env` file in this directory containing:
+Create a `.env` file in this directory containing the required environment variables:
 
-RAISELY_TOKEN=<your API secret key>
+RAISELY_TOKEN=
 
-RAISELY_CAMPAIGNS=<a comma-separated list of campaign uuids to sync>
+RAISELY_CAMPAIGNS=
 
 then run `docker-compose up` from this directory.
 
