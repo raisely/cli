@@ -1,5 +1,6 @@
 import inquirer from "inquirer";
 import ora from "ora";
+import { login } from "./actions/auth";
 
 import { updateConfig } from "./config";
 
@@ -40,7 +41,7 @@ export async function doLogin(message) {
 	return { user, token };
 }
 
-export default function login(program) {
+export default function loginAction(program) {
 	program.command("login").action(async (dir, cmd) => {
 		try {
 			await doLogin(ora)

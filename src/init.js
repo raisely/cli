@@ -3,7 +3,6 @@ import inquirer from "inquirer";
 import ora from "ora";
 
 import { welcome, log, br, error } from "./helpers";
-import { login } from "./actions/auth";
 import { getCampaigns } from "./actions/campaigns";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { saveConfig } from "./config";
