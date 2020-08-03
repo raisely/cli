@@ -115,3 +115,21 @@ export async function saveConfig(config) {
 	configLoader.succeed();
 	await hideFile();
 }
+
+export async function updateConfig(updates) {
+	// write the raisely.json config file
+	const configLoader = ora(
+		`Updating settings in ${CONFIG_FILE}...`
+	).start();
+	let config = await loadConfig();
+	const newConfig = {
+		...config,
+		...updates
+	};
+	fs.writeFileSync(
+		path.join(process.cwd(), CONFIG_FILE),
+		JSON.stringify(newConfig, null, 4)
+	);
+	configLoader.succeed();
+	await hideFile();
+}
