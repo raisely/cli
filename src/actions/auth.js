@@ -1,5 +1,7 @@
-import api from "./api";
 import jsonDeocde from 'json-decode';
+
+import api from "./api";
+import { loadConfig } from "../config";
 
 let token = null;
 let tokenExpiresAt = null;
@@ -43,8 +45,10 @@ export async function login(body, opts = {}) {
 }
 
 export async function getToken() {
-	if (!token) ({ token }) = loadConfig();
-	setTokenExpiresAt();
+	if (!token) {
+		({ token }) = await loadConfig();
+		setTokenExpiresAt();
+	}
 	if (tokenExpiresSoon()) {
 		({ token } = await doLogin('Your token has expired, please login again'));
 		setTokenExpiresAt();
