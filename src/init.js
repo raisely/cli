@@ -7,6 +7,7 @@ import { login } from "./actions/auth";
 import { getCampaigns } from "./actions/campaigns";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { saveConfig } from "./config";
+import { doLogin } from "./login";
 
 export default function init(program) {
 	program.command("init").action(async (dir, cmd) => {
@@ -23,36 +24,8 @@ export default function init(program) {
 		log(`Log in to your Raisely account to start:`, "white");
 		br();
 
-		// collect login details
-		const credentials = await inquirer.prompt([
-			{
-				type: "input",
-				name: "username",
-				message: "Enter your email address",
-				validate: value =>
-					value.length ? true : "Please enter your email address"
-			},
-			{
-				type: "password",
-				message: "Enter your password",
-				name: "password",
-				validate: value =>
-					value.length ? true : "Please enter a password"
-			}
-		]);
-
-		// log the user in
-		const loginLoader = ora("Logging you in...").start();
 		try {
-			data.user = await login(
-				{
-					...credentials,
-					requestAdminToken: true
-				},
-				{ apiUrl: program.api }
-			);
-			data.token = data.user.token;
-			loginLoader.succeed();
+			const { user, token } = await doLogin();
 		} catch (e) {
 			return error(e, loginLoader);
 		}
@@ -83,7 +56,7 @@ export default function init(program) {
 		]);
 
 		const config = {
-			token: data.token,
+			token,
 			campaigns: campaigns.campaigns
 		};
 		if (program.api) config.apiUrl = program.api;

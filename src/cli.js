@@ -5,9 +5,12 @@ import update from "./update";
 import start from "./start";
 import create from "./create";
 import deploy from "./deploy";
+import login from "./login";
+
+const { version } = require('package.json');
 
 export async function cli(args) {
-	program.version("1.4.0");
+	program.version(version);
 	program.option("-a, --api <api>", "custom api url");
 
 	init(program);
@@ -15,6 +18,7 @@ export async function cli(args) {
 	start(program);
 	create(program);
 	deploy(program);
+	login(program);
 
 	program.parse(process.argv);
 }
