@@ -7,16 +7,21 @@ let token = null;
 let tokenExpiresAt = null;
 
 /**
- * Return true if a token has an exp and it's in the past or the next 24 hours
+ * Return true if a token has an exp and it's in the past 
+ * or (if warnEarly is set) in the next 24 hours
  * (easier to update password at the start of the session than notice it needs
  * updating 10 minutes in)
+ * @param {boolean} warnEarly If true, a token will be considered expired if it expires in the next 24 hours
  * @returns {boolean}
  */
-function tokenExpiresSoon() {
+function isTokenExpired(warnEarly) {
 	if (tokenExpiresAt) {
-		const window = 24 * 60 * 60 * 1000;
-		const expiresWindow = new Date().getTime() + window;
-		return tokenExpiresAt.getTime() < expiresWindow;
+		let expiresThreshold = new Date().getTime();
+		if (warnEarly) {
+			const window = 24 * 60 * 60 * 1000;
+			expiresThreshold += window;
+		}
+		return tokenExpiresAt.getTime() < expiresThreshold;
 	}
 	return false;
 }
@@ -44,12 +49,12 @@ export async function login(body, opts = {}) {
 	);
 }
 
-export async function getToken() {
+export async function getToken(warnEarly) {
 	if (!token) {
 		({ token }) = await loadConfig();
 		setTokenExpiresAt();
 	}
-	if (tokenExpiresSoon()) {
+	if (tokenExpiresSoon(warnEarly)) {
 		({ token } = await doLogin('Your token has expired, please login again'));
 		setTokenExpiresAt();
 		await updateConfig({ token });

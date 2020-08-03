@@ -19,7 +19,7 @@ export default function start(program) {
 		// load config
 		const config = await loadConfig();
 		// Load token, which will prompt a login if the token is expired
-		config.token = await getToken();
+		config.token = await getToken(warnEarly);
 
 		log(`Watching and uploading changes in this directory`, "white");
 		br();

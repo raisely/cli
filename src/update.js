@@ -11,7 +11,7 @@ export default function update(program) {
 		let config = await loadConfig();
 
 		// Load token, which will prompt a login if the token is expired
-		config.token = await getToken();
+		config.token = await getToken(warnEarly);
 
 		const data = {};
 
