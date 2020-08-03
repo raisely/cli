@@ -28,14 +28,14 @@ export async function doLogin(message) {
 	// log the user in
 	const loginLoader = ora("Logging you in...").start();
 
-	const user = await login(
+	const loginBody = await login(
 		{
 			...credentials,
 			requestAdminToken: true
 		},
 		{ apiUrl: program.api }
 	);
-	const { token } = data.user;
+	const { token, user } = loginBody;
 	loginLoader.succeed();
 
 	return { user, token };
@@ -44,12 +44,13 @@ export async function doLogin(message) {
 export default function loginAction(program) {
 	program.command("login").action(async (dir, cmd) => {
 		try {
-			await doLogin(ora)
+			const { token, user } = await doLogin(ora)
+			await updateConfig({
+				token,
+				organisationUuid: user.organisationUuid,
+			});
 		} catch (e) {
 			return error(e, loginLoader);
 		}
-		await updateConfig({
-			token,
-		});
 	});
 }

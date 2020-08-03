@@ -38,6 +38,45 @@ function setTokenExpiresAt() {
 	}
 }
 
+async function checkCorrectOrganisation(organisationUuid) {
+	if (organisationUuid) {
+		const authData = await api(
+			{
+				path: "/authenticate",
+				method: "GET",
+			},
+			opts.apiUrl
+		);
+		if (authData.organisationUuid !== organisationUuid) {
+			log(
+				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${tokenOrganisationUuid}`,
+				"white"
+			);
+			const response = await inquirer.prompt([
+				{
+					type: "confirm",
+					name: "confirm",
+					message: `Would you like to switch your account to ${organisationUuid} now?`,
+				},
+			]);
+			if (response.confirm) {
+				await api(
+					{
+						path: "/users/:user/move",
+						method: "PUT",
+						json: {
+							data: {
+								organisationUuid,
+							}
+						}
+					},
+					opts.apiUrl
+				);
+			}
+		}
+	}
+}
+
 export async function login(body, opts = {}) {
 	return await api(
 		{
@@ -50,15 +89,19 @@ export async function login(body, opts = {}) {
 }
 
 export async function getToken(warnEarly) {
+	let isNewToken = false;
 	if (!token) {
-		({ token }) = await loadConfig();
+		({ token, organisationUuid }) = await loadConfig();
 		setTokenExpiresAt();
+		isNewToken = true;
 	}
 	if (isTokenExpired(warnEarly)) {
 		({ token } = await doLogin('Your token has expired, please login again'));
 		setTokenExpiresAt();
 		await updateConfig({ token });
+		isNewToken = true;
 	}
+	if (isNewToken) await checkCorrectOrganisation(organisationUuid);
 
 	return token;
 }
