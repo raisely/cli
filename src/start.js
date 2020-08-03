@@ -18,6 +18,8 @@ export default function start(program) {
 
 		// load config
 		const config = await loadConfig();
+		// Load token, which will prompt a login if the token is expired
+		config.token = await getToken();
 
 		log(`Watching and uploading changes in this directory`, "white");
 		br();
@@ -38,6 +40,7 @@ export default function start(program) {
 			{ encoding: "utf8", recursive: true },
 			async (eventType, filename) => {
 				const loader = ora(`Saving ${filename}`).start();
+				config.token = await getToken();
 
 				await buildStyles(filename, config);
 
@@ -50,6 +53,8 @@ export default function start(program) {
 			{ encoding: "utf8", recursive: true },
 			async (eventType, filename) => {
 				const loader = ora(`Saving ${filename}`).start();
+				config.token = await getToken();
+
 				try {
 					if (filename.includes(".json")) {
 						await updateComponentConfig(
