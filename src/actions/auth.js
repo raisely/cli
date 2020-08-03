@@ -54,7 +54,7 @@ export async function getToken(warnEarly) {
 		({ token }) = await loadConfig();
 		setTokenExpiresAt();
 	}
-	if (tokenExpiresSoon(warnEarly)) {
+	if (isTokenExpired(warnEarly)) {
 		({ token } = await doLogin('Your token has expired, please login again'));
 		setTokenExpiresAt();
 		await updateConfig({ token });
