@@ -85,7 +85,8 @@ export async function loadConfig() {
 			token: process.env.RAISELY_TOKEN,
 			cli: true,
 			apiUrl: process.env.RAISELY_API_URL,
-			campaigns: process.env.RAISELY_CAMPAIGNS.split(",")
+			campaigns: process.env.RAISELY_CAMPAIGNS.split(","),
+			$tokenFromEnv: true,
 		};
 	}
 
