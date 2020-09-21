@@ -4,7 +4,7 @@ import ora from "ora";
 import fs from "fs";
 import path from "path";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, informUpdate } from "./helpers";
 import { buildStyles, getCampaign } from "./actions/campaigns";
 import {
 	updateComponentFile,
@@ -92,6 +92,7 @@ export default function deploy(program) {
 			await updateComponentConfig(data, config);
 			await updateComponentFile(data, config);
 			loader.succeed();
+			await informUpdate();
 		}
 
 		br();

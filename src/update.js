@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import inquirer from "inquirer";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { loadConfig } from "./config";
 
@@ -58,5 +58,6 @@ export default function update(program) {
 			)} to begin.`,
 			"green"
 		);
+		await informUpdate();
 	});
 }

@@ -2,7 +2,7 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import { syncComponents } from "./actions/sync";
 import { createComponent } from "./actions/components";
 import { loadConfig } from "./config";
@@ -65,5 +65,6 @@ export default function create(program) {
 				)} to begin.`,
 				"green"
 			);
+			await informUpdate();
 		});
 }

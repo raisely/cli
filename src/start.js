@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import glob from "glob-promise";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import { updateStyles, buildStyles } from "./actions/campaigns";
 import {
 	updateComponentFile,

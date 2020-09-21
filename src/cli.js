@@ -7,7 +7,7 @@ import create from "./create";
 import deploy from "./deploy";
 import login from "./login";
 
-const { version } = require('package.json');
+import { version } from '../package.json';
 
 export async function cli(args) {
 	program.version(version);

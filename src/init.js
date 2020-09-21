@@ -2,7 +2,7 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import { getCampaigns } from "./actions/campaigns";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { saveConfig } from "./config";
@@ -76,5 +76,6 @@ export default function init(program) {
 		br();
 		log("raisely update", "inverse");
 		br();
+		await informUpdate();
 	});
 }
