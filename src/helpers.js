@@ -11,14 +11,14 @@ function checkUpdate() {
 		const url = `https://registry.npmjs.org/-/package/${modConfig.name}/dist-tags`;
 		updatePromise = request({
 			url,
-			json: true
+			json: true,
 		})
-		.then(result => {			
-			latestVersion = result.latest;
-		})
-		.catch(e => {
-			// noop 
-		})
+			.then((result) => {
+				latestVersion = result.latest;
+			})
+			.catch((e) => {
+				// noop
+			});
 	}
 }
 
@@ -47,16 +47,17 @@ export async function informUpdate() {
 		await updatePromise;
 		if (latestVersion > modConfig.version) {
 			log(
-`
-A new version of the Raisely cli is available (${latestVersion}), to update, run:
+				`
+A new version of the Raisely cli is available (${latestVersion}),
+See changes at: https://github.com/raisely/cli/blob/master/CHANGELOG.md
+To update, run:
 		npm update @raisely/cli
 `,
 
-        "white"
-      );
+				"white"
+			);
 		}
 	}
-
 }
 
 export function error(e, loader) {
