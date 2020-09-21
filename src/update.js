@@ -4,6 +4,7 @@ import inquirer from "inquirer";
 import { welcome, log, br, error, informUpdate } from "./helpers";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { loadConfig } from "./config";
+import { getToken } from "./actions/auth";
 
 export default function update(program) {
 	program.command("update").action(async (dir, cmd) => {
@@ -11,7 +12,7 @@ export default function update(program) {
 		let config = await loadConfig();
 
 		// Load token, which will prompt a login if the token is expired
-		config.token = await getToken(warnEarly);
+		await getToken(config, true);
 
 		const data = {};
 

@@ -23,16 +23,15 @@ export default function init(program) {
 		log(`Log in to your Raisely account to start:`, "white");
 		br();
 
-		try {
-			const { user, token } = await doLogin();
-		} catch (e) {
-			return error(e, loginLoader);
-		}
+		const result = await doLogin(program);
+        if (!result) return;
+
+		const { user, token } = result;
 
 		// load the campaigns
 		const campaignsLoader = ora("Loading your campaigns...").start();
 		try {
-			data.campaigns = await getCampaigns({}, data.token, {
+			data.campaigns = await getCampaigns({}, token, {
 				apiUrl: program.api
 			});
 			campaignsLoader.succeed();

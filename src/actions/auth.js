@@ -1,7 +1,9 @@
-import jsonDeocde from 'json-decode';
+import jwtDecode from 'jwt-decode';
+import inquirer from "inquirer";
+import ora from "ora";
 
 import api from "./api";
-import { loadConfig } from "../config";
+import { error, log  } from "../helpers";
 
 let token = null;
 let tokenExpiresAt = null;
@@ -30,7 +32,7 @@ function setTokenExpiresAt() {
 	if (tokenExpiresAt === null) {
 		tokenExpiresAt = false;
 		try {
-			const decoded = jsonDeocde(token);
+			const decoded = jwtDecode(token);
 			tokenExpiresAt = new Date(decoded.exp * 1000);
 		} catch (e) {
 			console.warn("Could not decode token, is it a JWT?");
@@ -38,18 +40,17 @@ function setTokenExpiresAt() {
 	}
 }
 
-async function checkCorrectOrganisation(organisationUuid) {
+async function checkCorrectOrganisation(organisationUuid, opts) {
 	if (organisationUuid) {
-		const authData = await api(
-			{
-				path: "/authenticate",
-				method: "GET",
+		const authData = await api({
+			path: "/authenticate",
+			auth: {
+				bearer: opts.token,
 			},
-			opts.apiUrl
-		);
+		}, opts.apiUrl);
 		if (authData.organisationUuid !== organisationUuid) {
 			log(
-				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${tokenOrganisationUuid}`,
+				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${authData.organisationUuid}`,
 				"white"
 			);
 			const response = await inquirer.prompt([
@@ -60,18 +61,28 @@ async function checkCorrectOrganisation(organisationUuid) {
 				},
 			]);
 			if (response.confirm) {
-				await api(
-					{
-						path: "/users/:user/move",
-						method: "PUT",
-						json: {
-							data: {
-								organisationUuid,
+				const loader = ora("Switching to correct organisation ...").start();
+				try {
+					await api(
+						{
+							path: `/users/${authData.userUuid}/move`,
+							method: "PUT",
+							json: {
+								data: {
+									organisationUuid,
+								}
+							},
+							auth: {
+								bearer: opts.token
 							}
-						}
-					},
-					opts.apiUrl
-				);
+						},
+						opts.apiUrl
+					);
+					loader.succeed();
+				} catch (e) {
+					error(e, loader);
+					throw e;
+				}
 			}
 		}
 	}
@@ -88,10 +99,12 @@ export async function login(body, opts = {}) {
 	);
 }
 
-export async function getToken(warnEarly) {
+export async function getToken(opts, warnEarly) {
+	if (opts.$tokenFromEnv) return;
 	let isNewToken = false;
+	let organisationUuid;
 	if (!token) {
-		({ token, organisationUuid }) = await loadConfig();
+		({ token, organisationUuid } = opts);
 		setTokenExpiresAt();
 		isNewToken = true;
 	}
@@ -101,7 +114,8 @@ export async function getToken(warnEarly) {
 		await updateConfig({ token });
 		isNewToken = true;
 	}
-	if (isNewToken) await checkCorrectOrganisation(organisationUuid);
+	opts.token = token;
+	if (isNewToken) await checkCorrectOrganisation(organisationUuid, opts);
 
 	return token;
 }

@@ -6,6 +6,7 @@ import { welcome, log, br, error, informUpdate } from "./helpers";
 import { syncComponents } from "./actions/sync";
 import { createComponent } from "./actions/components";
 import { loadConfig } from "./config";
+import { getToken } from "./actions/auth";
 
 export default function create(program) {
 	program
@@ -16,6 +17,7 @@ export default function create(program) {
 
 			// load config
 			let config = await loadConfig();
+			await getToken(config);
 
 			log(
 				`You are creating a new custom component${

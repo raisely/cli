@@ -3,8 +3,10 @@ import ora from "ora";
 import { login } from "./actions/auth";
 
 import { updateConfig } from "./config";
+import { log, error, informUpdate } from "./helpers";
 
-export async function doLogin(message) {
+
+export async function doLogin(program, message) {
 	if (message) log(message, "white");
 
 	// collect login details
@@ -28,29 +30,32 @@ export async function doLogin(message) {
 	// log the user in
 	const loginLoader = ora("Logging you in...").start();
 
-	const loginBody = await login(
-		{
+	try {
+		const loginBody = await login(
+			{
 			...credentials,
-			requestAdminToken: true
-		},
-		{ apiUrl: program.api }
-	);
-	const { token, user } = loginBody;
-	loginLoader.succeed();
-
-	return { user, token };
+			requestAdminToken: true,
+			},
+			{ apiUrl: program.api }
+		);
+		const { token, data: user } = loginBody;
+		loginLoader.succeed();
+		return { user, token };
+	} catch (e) {
+		error(e, loginLoader);
+		return false;
+	}
 }
 
 export default function loginAction(program) {
 	program.command("login").action(async (dir, cmd) => {
-		try {
-			const { token, user } = await doLogin(ora)
-			await updateConfig({
-				token,
-				organisationUuid: user.organisationUuid,
-			});
-		} catch (e) {
-			return error(e, loginLoader);
-		}
+		const result = await doLogin(program);
+		if (!result) return;
+		const { token, user } = result;
+		await updateConfig({
+			token,
+			organisationUuid: user.organisationUuid,
+		});
+		await informUpdate();
 	});
 }

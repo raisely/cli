@@ -11,11 +11,13 @@ import {
 	updateComponentConfig
 } from "./actions/components";
 import { loadConfig } from "./config";
+import { getToken } from "./actions/auth";
 
 export default function deploy(program) {
 	program.command("deploy").action(async (dir, cmd) => {
 		// load config
 		let config = await loadConfig();
+		await getToken(config);
 
 		welcome();
 		log(`You are about to deploy your local directly to Raisely`, "white");
