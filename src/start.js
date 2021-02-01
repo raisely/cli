@@ -8,11 +8,9 @@ import { welcome, log, br, error, informUpdate } from "./helpers";
 import { updateStyles, buildStyles } from "./actions/campaigns";
 import {
 	updateComponentFile,
-	updateComponentConfig
+	updateComponentConfig,
 } from "./actions/components";
-import {
-	getToken
-} from "./actions/auth";
+import { getToken } from "./actions/auth";
 import { loadConfig } from "./config";
 
 export default function start(program) {
@@ -22,7 +20,7 @@ export default function start(program) {
 		// load config
 		const config = await loadConfig();
 		// Load token, which will prompt a login if the token is expired
-		config.token = await getToken(config, true);
+		config.token = await getToken(program, config, true);
 
 		await informUpdate();
 
@@ -75,7 +73,7 @@ export default function start(program) {
 										path.join(componentsDir, filename),
 										"utf8"
 									)
-								)
+								),
 							},
 							config
 						);
@@ -95,7 +93,7 @@ export default function start(program) {
 										),
 										"utf8"
 									)
-								)
+								),
 							},
 							config
 						);

@@ -17,7 +17,7 @@ export default function create(program) {
 
 			// load config
 			let config = await loadConfig();
-			await getToken(config);
+			await getToken(program, config);
 
 			log(
 				`You are creating a new custom component${
@@ -36,12 +36,12 @@ export default function create(program) {
 						type: "input",
 						name: "name",
 						message: "Name of your component",
-						validate: value => {
+						validate: (value) => {
 							return value && /^[a-z0-9-]+$/.test(value)
 								? true
 								: 'Name can only use lowercase letters, "-" and numbers';
-						}
-					}
+						},
+					},
 				]);
 				name = response.name;
 			}
