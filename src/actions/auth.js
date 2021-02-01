@@ -1,15 +1,17 @@
-import jwtDecode from 'jwt-decode';
+import jwtDecode from "jwt-decode";
 import inquirer from "inquirer";
 import ora from "ora";
 
 import api from "./api";
-import { error, log  } from "../helpers";
+import { error, log } from "../helpers";
+import { doLogin } from "../login";
+import { updateConfig } from "../config";
 
 let token = null;
 let tokenExpiresAt = null;
 
 /**
- * Return true if a token has an exp and it's in the past 
+ * Return true if a token has an exp and it's in the past
  * or (if warnEarly is set) in the next 24 hours
  * (easier to update password at the start of the session than notice it needs
  * updating 10 minutes in)
@@ -42,12 +44,15 @@ function setTokenExpiresAt() {
 
 async function checkCorrectOrganisation(organisationUuid, opts) {
 	if (organisationUuid) {
-		const authData = await api({
-			path: "/authenticate",
-			auth: {
-				bearer: opts.token,
+		const authData = await api(
+			{
+				path: "/authenticate",
+				auth: {
+					bearer: opts.token,
+				},
 			},
-		}, opts.apiUrl);
+			opts.apiUrl
+		);
 		if (authData.organisationUuid !== organisationUuid) {
 			log(
 				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${authData.organisationUuid}`,
@@ -61,7 +66,9 @@ async function checkCorrectOrganisation(organisationUuid, opts) {
 				},
 			]);
 			if (response.confirm) {
-				const loader = ora("Switching to correct organisation ...").start();
+				const loader = ora(
+					"Switching to correct organisation ..."
+				).start();
 				try {
 					await api(
 						{
@@ -70,11 +77,11 @@ async function checkCorrectOrganisation(organisationUuid, opts) {
 							json: {
 								data: {
 									organisationUuid,
-								}
+								},
 							},
 							auth: {
-								bearer: opts.token
-							}
+								bearer: opts.token,
+							},
 						},
 						opts.apiUrl
 					);
@@ -93,13 +100,13 @@ export async function login(body, opts = {}) {
 		{
 			path: "/login",
 			method: "POST",
-			json: body
+			json: body,
 		},
 		opts.apiUrl
 	);
 }
 
-export async function getToken(opts, warnEarly) {
+export async function getToken(program, opts, warnEarly) {
 	if (opts.$tokenFromEnv) return;
 	let isNewToken = false;
 	let organisationUuid;
@@ -109,7 +116,10 @@ export async function getToken(opts, warnEarly) {
 		isNewToken = true;
 	}
 	if (isTokenExpired(warnEarly)) {
-		({ token } = await doLogin('Your token has expired, please login again'));
+		({ token } = await doLogin(
+			program,
+			"Your token has expired, please login again"
+		));
 		setTokenExpiresAt();
 		await updateConfig({ token });
 		isNewToken = true;
