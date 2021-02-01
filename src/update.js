@@ -12,7 +12,7 @@ export default function update(program) {
 		let config = await loadConfig();
 
 		// Load token, which will prompt a login if the token is expired
-		await getToken(config, true);
+		await getToken(program, config, true);
 
 		const data = {};
 
@@ -37,8 +37,8 @@ export default function update(program) {
 			{
 				type: "confirm",
 				name: "confirm",
-				message: "Are you sure you want to continue?"
-			}
+				message: "Are you sure you want to continue?",
+			},
 		]);
 
 		if (!response.confirm) {
