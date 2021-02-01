@@ -42,7 +42,39 @@ function setTokenExpiresAt() {
 	}
 }
 
-async function checkCorrectOrganisation(organisationUuid, opts) {
+async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
+	let organisationUuid = orgUuid;
+	console.log("Checking", organisationUuid, opts.campaigns[0]);
+	if (!organisationUuid) {
+		const permChecker = ora("Checking campaign permissions...").start();
+		try {
+			const campaignUuid = opts.campaigns[0];
+			const campaign = await api(
+				{
+					path: `/campaigns/${campaignUuid}?private=1`,
+					auth: {
+						bearer: opts.token,
+					},
+				},
+				opts.apiUrl
+			);
+			console.log(campaign.data);
+			({ organisationUuid } = campaign.data);
+
+			permChecker.succeed();
+			await updateConfig({ organisationUuid });
+		} catch (e) {
+			error(e, permChecker);
+			console.error(
+				"Could not retrieve the campaign. Are you switched into the correct organisation?"
+			);
+
+			// A bit hacky, but saves a lot of conditional code all over or
+			// a stacktrace if we rethrow
+			process.exit(-1);
+		}
+	}
+
 	if (organisationUuid) {
 		const authData = await api(
 			{
