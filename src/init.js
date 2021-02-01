@@ -24,15 +24,16 @@ export default function init(program) {
 		br();
 
 		const result = await doLogin(program);
-        if (!result) return;
+		if (!result) return;
 
 		const { user, token } = result;
+		const { organisationUuid } = user;
 
 		// load the campaigns
 		const campaignsLoader = ora("Loading your campaigns...").start();
 		try {
 			data.campaigns = await getCampaigns({}, token, {
-				apiUrl: program.api
+				apiUrl: program.api,
 			});
 			campaignsLoader.succeed();
 		} catch (e) {
@@ -45,17 +46,18 @@ export default function init(program) {
 				type: "checkbox",
 				name: "campaigns",
 				message: "Select the campaigns to sync:",
-				choices: data.campaigns.data.map(c => ({
+				choices: data.campaigns.data.map((c) => ({
 					name: `${c.name} (${c.path})`,
 					value: c.uuid,
-					short: c.path
-				}))
-			}
+					short: c.path,
+				})),
+			},
 		]);
 
 		const config = {
 			token,
-			campaigns: campaigns.campaigns
+			campaigns: campaigns.campaigns,
+			organisationUuid,
 		};
 		if (program.api) config.apiUrl = program.api;
 		await saveConfig(config);
