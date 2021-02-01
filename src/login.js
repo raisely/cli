@@ -5,7 +5,6 @@ import { login } from "./actions/auth";
 import { updateConfig } from "./config";
 import { log, error, informUpdate } from "./helpers";
 
-
 export async function doLogin(program, message) {
 	if (message) log(message, "white");
 
@@ -15,16 +14,16 @@ export async function doLogin(program, message) {
 			type: "input",
 			name: "username",
 			message: "Enter your email address",
-			validate: value =>
-				value.length ? true : "Please enter your email address"
+			validate: (value) =>
+				value.length ? true : "Please enter your email address",
 		},
 		{
 			type: "password",
 			message: "Enter your password",
 			name: "password",
-			validate: value =>
-				value.length ? true : "Please enter a password"
-		}
+			validate: (value) =>
+				value.length ? true : "Please enter a password",
+		},
 	]);
 
 	// log the user in
@@ -33,8 +32,8 @@ export async function doLogin(program, message) {
 	try {
 		const loginBody = await login(
 			{
-			...credentials,
-			requestAdminToken: true,
+				...credentials,
+				requestAdminToken: true,
 			},
 			{ apiUrl: program.api }
 		);
@@ -54,7 +53,6 @@ export default function loginAction(program) {
 		const { token, user } = result;
 		await updateConfig({
 			token,
-			organisationUuid: user.organisationUuid,
 		});
 		await informUpdate();
 	});
