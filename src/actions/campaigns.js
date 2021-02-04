@@ -33,7 +33,9 @@ export async function buildStyles(filename, config) {
 	const stylesDir = path.join(process.cwd(), "stylesheets");
 	const filePath = filename.split(path.sep)[0];
 
-	const files = await glob(`${path.join(stylesDir, filePath)}/**/*.scss`);
+	// glob requires posix paths, so in case we're running on windows
+	// we need to replace \ with /
+	const files = await glob(`${path.join(stylesDir, filePath).replace('\\', '/')}/**/*.scss`);
 
 	const configFiles = {};
 	for (const file of files) {
