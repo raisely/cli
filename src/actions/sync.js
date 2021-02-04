@@ -37,10 +37,10 @@ export async function syncStyles(config, workDir) {
 					campaign.data.config.css.files
 				)) {
 					const fileFolder = file
-						.split("/")
+						.split(path.sep)
 						.filter(f => !f.includes("."));
 					const fileName = file
-						.split("/")
+						.split(path.sep)
 						.filter(f => f.includes("."))
 						.join("");
 					const fileDir = path.join(campaignDir, ...fileFolder);
