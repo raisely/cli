@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 
 import { welcome, log, br, error } from "./helpers";
-import { buildStyles, getCampaign } from "./actions/campaigns";
+import { buildStyles, getCampaign, updatePage } from "./actions/campaigns";
 import {
 	updateComponentFile,
 	updateComponentConfig
@@ -28,7 +28,7 @@ export default function deploy(program) {
 			br();
 		}
 		log(
-			`You will overwrite the styles and components in your campaign.`,
+			`You will overwrite the styles, components and pages in your campaign.`,
 			"white"
 		);
 		br();
@@ -91,6 +91,28 @@ export default function deploy(program) {
 
 			await updateComponentConfig(data, config);
 			await updateComponentFile(data, config);
+			loader.succeed();
+		}
+
+		// upload campaign pages
+		for (const campaignUuid of config.campaigns) {
+			const loader = ora(`Uploading pages for ${campaignUuid}`).start();
+			const campaign = await getCampaign(
+				{ uuid: campaignUuid },
+				config.token,
+				config
+			);
+
+			const pagesDir = path.join(process.cwd(), "pages");
+			const campaignDir = path.join(pagesDir, `${campaign.data.path}`);
+
+			for (const file of fs.readdirSync(campaignDir)) {
+				const pageData = JSON.parse(fs.readFileSync(
+					path.join(campaignDir, file),
+					"utf8"
+				))
+				await updatePage(pageData, config);
+			}
 			loader.succeed();
 		}
 

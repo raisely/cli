@@ -2,7 +2,7 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 
 import { welcome, log, br, error } from "./helpers";
-import { syncStyles, syncComponents } from "./actions/sync";
+import { syncStyles, syncComponents, syncPages } from "./actions/sync";
 import { loadConfig } from "./config";
 
 export default function update(program) {
@@ -47,6 +47,9 @@ export default function update(program) {
 
 		// sync down custom components
 		await syncComponents(config, process.cwd());
+
+		// sync down pages
+		await syncPages(config, process.cwd());
 
 		br();
 		log(

@@ -120,3 +120,79 @@ export async function syncComponents(config, workDir, filter) {
 		return error(e, loader);
 	}
 }
+
+export async function syncPages(config, workDir) {
+	const directory = path.join(workDir, "pages");
+	if (!fs.existsSync(directory)) {
+		fs.mkdirSync(directory);
+	}
+
+	const loader = ora("Downloading campaign pages...").start();
+	try {
+		for (const uuid of config.campaigns) {
+			const campaign = await api(
+				{
+					path: `/campaigns/${uuid}?private=true`,
+					auth: {
+						bearer: config.token
+					}
+				},
+				config.apiUrl
+			);
+
+			const campaignDir = path.join(directory, campaign.data.path);
+
+			if (!fs.existsSync(campaignDir)) {
+				fs.mkdirSync(campaignDir);
+			}
+
+			const pages = await api(
+				{
+					path: `/campaigns/${uuid}/pages`,
+					qs: {
+						private: 1,
+						limit: 100
+					},
+					auth: {
+						bearer: config.token
+					}
+				},
+				config.apiUrl
+			);
+
+			for (const page of pages.data) {
+				fs.writeFileSync(
+					path.join(campaignDir, `${page.internalTitle}.json`),
+					JSON.stringify(
+						{
+							uuid: page.uuid,
+							data: { // these are the editable page fields
+								title: page.title,
+								internalTitle: page.internalTitle,
+								body: page.body,
+								path: page.path,
+								status: page.status,
+								provider: page.provider,
+								condition: page.condition,
+								image: page.image,
+								metaTitle: page.metaTitle,
+								metaDescription: page.metaDescription,
+								socialTitle: page.socialTitle,
+								socialDescription: page.socialDescription
+							}
+						},
+						null,
+						4
+					)
+				);
+			}
+
+		}
+
+		loader.succeed();
+	} catch (e) {
+		console.log(e);
+		return error(e, loader);
+	}
+
+}

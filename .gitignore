@@ -5,4 +5,6 @@ raisely.json
 # dev folders
 stylesheets
 components
+pages
 .raisely.json
+.env
