@@ -44,7 +44,6 @@ function setTokenExpiresAt() {
 
 async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 	let organisationUuid = orgUuid;
-	console.log("Checking", organisationUuid, opts.campaigns[0]);
 	if (!organisationUuid) {
 		const permChecker = ora("Checking campaign permissions...").start();
 		try {
