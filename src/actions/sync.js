@@ -18,8 +18,8 @@ export async function syncStyles(config, workDir) {
 				{
 					path: `/campaigns/${uuid}?private=true`,
 					auth: {
-						bearer: config.token
-					}
+						bearer: config.token,
+					},
 				},
 				config.apiUrl
 			);
@@ -33,15 +33,11 @@ export async function syncStyles(config, workDir) {
 			if (campaign.data.config.css.files) {
 				const files = campaign.data.config.css.files;
 
-				for (const file of Object.keys(
-					campaign.data.config.css.files
-				)) {
-					const fileFolder = file
-						.split("/")
-						.filter(f => !f.includes("."));
+				for (const file of Object.keys(campaign.data.config.css.files)) {
+					const fileFolder = file.split("/").filter((f) => !f.includes("."));
 					const fileName = file
 						.split("/")
-						.filter(f => f.includes("."))
+						.filter((f) => f.includes("."))
 						.join("");
 					const fileDir = path.join(campaignDir, ...fileFolder);
 
@@ -79,11 +75,11 @@ export async function syncComponents(config, workDir, filter) {
 				path: `/components`,
 				qs: {
 					private: 1,
-					limit: 100
+					limit: 100,
 				},
 				auth: {
-					bearer: config.token
-				}
+					bearer: config.token,
+				},
 			},
 			config.apiUrl
 		);
@@ -107,7 +103,7 @@ export async function syncComponents(config, workDir, filter) {
 				JSON.stringify(
 					{
 						fields: component.latestSchema.data.editable,
-						uuid: component.uuid
+						uuid: component.uuid,
 					},
 					null,
 					4
