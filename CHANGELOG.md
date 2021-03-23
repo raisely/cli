@@ -1,3 +1,8 @@
+# 1.5.0
+
+- Add support for 2 factor authentication
+- Fix style sync compatibility issues on Windows
+
 # 1.4.1
 
 - Gracefully handle expired tokens and offer to log user in
