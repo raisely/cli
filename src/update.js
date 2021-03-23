@@ -1,14 +1,18 @@
 import chalk from "chalk";
 import inquirer from "inquirer";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { loadConfig } from "./config";
+import { getToken } from "./actions/auth";
 
 export default function update(program) {
 	program.command("update").action(async (dir, cmd) => {
 		// load config
 		let config = await loadConfig();
+
+		// Load token, which will prompt a login if the token is expired
+		await getToken(program, config, true);
 
 		const data = {};
 
@@ -33,8 +37,8 @@ export default function update(program) {
 			{
 				type: "confirm",
 				name: "confirm",
-				message: "Are you sure you want to continue?"
-			}
+				message: "Are you sure you want to continue?",
+			},
 		]);
 
 		if (!response.confirm) {
@@ -55,5 +59,6 @@ export default function update(program) {
 			)} to begin.`,
 			"green"
 		);
+		await informUpdate();
 	});
 }

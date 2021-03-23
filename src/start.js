@@ -4,14 +4,15 @@ import fs from "fs";
 import path from "path";
 import glob from "glob-promise";
 
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import watch from 'node-watch';
 
-import { welcome, log, br, error } from "./helpers";
 import { updateStyles, buildStyles } from "./actions/campaigns";
 import {
 	updateComponentFile,
-	updateComponentConfig
+	updateComponentConfig,
 } from "./actions/components";
+import { getToken } from "./actions/auth";
 import { loadConfig } from "./config";
 
 export default function start(program) {
@@ -20,6 +21,10 @@ export default function start(program) {
 
 		// load config
 		const config = await loadConfig();
+		// Load token, which will prompt a login if the token is expired
+		config.token = await getToken(program, config, true);
+
+		await informUpdate();
 
 		log(`Watching and uploading changes in this directory`, "white");
 		br();
@@ -54,6 +59,7 @@ export default function start(program) {
 			async (eventType, filenameRaw) => {
 				const filename = path.relative(componentsDir, filenameRaw);
 				const loader = ora(`Saving ${filename}`).start();
+
 				try {
 					if (filename.includes(".json")) {
 						await updateComponentConfig(
@@ -71,7 +77,7 @@ export default function start(program) {
 										path.join(componentsDir, filename),
 										"utf8"
 									)
-								)
+								),
 							},
 							config
 						);
@@ -91,7 +97,7 @@ export default function start(program) {
 										),
 										"utf8"
 									)
-								)
+								),
 							},
 							config
 						);

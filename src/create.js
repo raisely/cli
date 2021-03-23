@@ -2,10 +2,11 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import { syncComponents } from "./actions/sync";
 import { createComponent } from "./actions/components";
 import { loadConfig } from "./config";
+import { getToken } from "./actions/auth";
 
 export default function create(program) {
 	program
@@ -16,6 +17,7 @@ export default function create(program) {
 
 			// load config
 			let config = await loadConfig();
+			await getToken(program, config);
 
 			log(
 				`You are creating a new custom component${
@@ -34,12 +36,12 @@ export default function create(program) {
 						type: "input",
 						name: "name",
 						message: "Name of your component",
-						validate: value => {
+						validate: (value) => {
 							return value && /^[a-z0-9-]+$/.test(value)
 								? true
 								: 'Name can only use lowercase letters, "-" and numbers';
-						}
-					}
+						},
+					},
 				]);
 				name = response.name;
 			}
@@ -65,5 +67,6 @@ export default function create(program) {
 				)} to begin.`,
 				"green"
 			);
+			await informUpdate();
 		});
 }

@@ -2,11 +2,11 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
 
-import { welcome, log, br, error } from "./helpers";
-import { login } from "./actions/auth";
+import { welcome, log, br, error, informUpdate } from "./helpers";
 import { getCampaigns } from "./actions/campaigns";
 import { syncStyles, syncComponents } from "./actions/sync";
 import { saveConfig } from "./config";
+import { doLogin } from "./login";
 
 export default function init(program) {
 	program.command("init").action(async (dir, cmd) => {
@@ -23,45 +23,17 @@ export default function init(program) {
 		log(`Log in to your Raisely account to start:`, "white");
 		br();
 
-		// collect login details
-		const credentials = await inquirer.prompt([
-			{
-				type: "input",
-				name: "username",
-				message: "Enter your email address",
-				validate: value =>
-					value.length ? true : "Please enter your email address"
-			},
-			{
-				type: "password",
-				message: "Enter your password",
-				name: "password",
-				validate: value =>
-					value.length ? true : "Please enter a password"
-			}
-		]);
+		const result = await doLogin(program);
+		if (!result) return;
 
-		// log the user in
-		const loginLoader = ora("Logging you in...").start();
-		try {
-			data.user = await login(
-				{
-					...credentials,
-					requestAdminToken: true
-				},
-				{ apiUrl: program.api }
-			);
-			data.token = data.user.token;
-			loginLoader.succeed();
-		} catch (e) {
-			return error(e, loginLoader);
-		}
+		const { user, token } = result;
+		const { organisationUuid } = user;
 
 		// load the campaigns
 		const campaignsLoader = ora("Loading your campaigns...").start();
 		try {
-			data.campaigns = await getCampaigns({}, data.token, {
-				apiUrl: program.api
+			data.campaigns = await getCampaigns({}, token, {
+				apiUrl: program.api,
 			});
 			campaignsLoader.succeed();
 		} catch (e) {
@@ -74,17 +46,18 @@ export default function init(program) {
 				type: "checkbox",
 				name: "campaigns",
 				message: "Select the campaigns to sync:",
-				choices: data.campaigns.data.map(c => ({
+				choices: data.campaigns.data.map((c) => ({
 					name: `${c.name} (${c.path})`,
 					value: c.uuid,
-					short: c.path
-				}))
-			}
+					short: c.path,
+				})),
+			},
 		]);
 
 		const config = {
-			token: data.token,
-			campaigns: campaigns.campaigns
+			token,
+			campaigns: campaigns.campaigns,
+			organisationUuid,
 		};
 		if (program.api) config.apiUrl = program.api;
 		await saveConfig(config);
@@ -104,5 +77,6 @@ export default function init(program) {
 		br();
 		log("raisely update", "inverse");
 		br();
+		await informUpdate();
 	});
 }

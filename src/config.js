@@ -85,7 +85,8 @@ export async function loadConfig() {
 			token: process.env.RAISELY_TOKEN,
 			cli: true,
 			apiUrl: process.env.RAISELY_API_URL,
-			campaigns: process.env.RAISELY_CAMPAIGNS.split(",")
+			campaigns: process.env.RAISELY_CAMPAIGNS.split(","),
+			$tokenFromEnv: true,
 		};
 	}
 
@@ -111,6 +112,24 @@ export async function saveConfig(config) {
 	fs.writeFileSync(
 		path.join(process.cwd(), CONFIG_FILE),
 		JSON.stringify(config, null, 4)
+	);
+	configLoader.succeed();
+	await hideFile();
+}
+
+export async function updateConfig(updates) {
+	// write the raisely.json config file
+	const configLoader = ora(
+		`Updating settings in ${CONFIG_FILE}...`
+	).start();
+	let config = await loadConfig();
+	const newConfig = {
+		...config,
+		...updates
+	};
+	fs.writeFileSync(
+		path.join(process.cwd(), CONFIG_FILE),
+		JSON.stringify(newConfig, null, 4)
 	);
 	configLoader.succeed();
 	await hideFile();

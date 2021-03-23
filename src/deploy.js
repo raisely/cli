@@ -4,18 +4,20 @@ import ora from "ora";
 import fs from "fs";
 import path from "path";
 
-import { welcome, log, br, error } from "./helpers";
+import { welcome, log, br, informUpdate } from "./helpers";
 import { buildStyles, getCampaign } from "./actions/campaigns";
 import {
 	updateComponentFile,
-	updateComponentConfig
+	updateComponentConfig,
 } from "./actions/components";
 import { loadConfig } from "./config";
+import { getToken } from "./actions/auth";
 
 export default function deploy(program) {
 	program.command("deploy").action(async (dir, cmd) => {
 		// load config
 		let config = await loadConfig();
+		await getToken(program, config);
 
 		welcome();
 		log(`You are about to deploy your local directly to Raisely`, "white");
@@ -39,8 +41,8 @@ export default function deploy(program) {
 				{
 					type: "confirm",
 					name: "confirm",
-					message: "Are you sure you want to continue?"
-				}
+					message: "Are you sure you want to continue?",
+				},
 			]);
 
 			if (!response.confirm) {
@@ -86,12 +88,13 @@ export default function deploy(program) {
 						path.join(componentsDir, file, `${file}.json`),
 						"utf8"
 					)
-				)
+				),
 			};
 
 			await updateComponentConfig(data, config);
 			await updateComponentFile(data, config);
 			loader.succeed();
+			await informUpdate();
 		}
 
 		br();
