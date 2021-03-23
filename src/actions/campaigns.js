@@ -31,21 +31,23 @@ export async function getCampaign({ uuid }, token, opts = {}) {
 
 export async function buildStyles(filename, config) {
 	const stylesDir = path.join(process.cwd(), "stylesheets");
-	const filePath = filename.split("/")[0];
+	const filePath = filename.split(path.sep)[0];
 
-	const files = await glob(`${path.join(stylesDir, filePath)}/**/*.scss`);
+	// glob requires posix paths, so in case we're running on windows
+	// we need to replace \ with /
+	const files = await glob(`${path.join(stylesDir, filePath).replace('\\', '/')}/**/*.scss`);
 
 	const configFiles = {};
 	for (const file of files) {
 		const fileName = file
-			.replace(`${stylesDir}/`, "")
-			.replace(`${filePath}/`, "");
+			.replace(`${stylesDir}${path.sep}`, "")
+			.replace(`${filePath}${path.sep}`, "");
 
 		// continue if this is the main stylesheet
 		if (fileName === `${filePath}.scss`) continue;
 
 		configFiles[
-			file.replace(`${stylesDir}/`, "").replace(`${filePath}/`, "")
+			file.replace(`${stylesDir}${path.sep}`, "").replace(`${filePath}${path.sep}`, "")
 		] = fs.readFileSync(file, "utf8");
 	}
 

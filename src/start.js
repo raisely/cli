@@ -5,6 +5,8 @@ import path from "path";
 import glob from "glob-promise";
 
 import { welcome, log, br, error, informUpdate } from "./helpers";
+import watch from 'node-watch';
+
 import { updateStyles, buildStyles } from "./actions/campaigns";
 import {
 	updateComponentFile,
@@ -38,10 +40,11 @@ export default function start(program) {
 		// watch folders
 		const stylesDir = path.join(process.cwd(), "stylesheets");
 		const componentsDir = path.join(process.cwd(), "components");
-		fs.watch(
+		watch(
 			stylesDir,
 			{ encoding: "utf8", recursive: true },
-			async (eventType, filename) => {
+			async (eventType, filenameRaw) => {
+				const filename = path.relative(stylesDir, filenameRaw);
 				const loader = ora(`Saving ${filename}`).start();
 
 				await buildStyles(filename, config);
@@ -50,10 +53,11 @@ export default function start(program) {
 			}
 		);
 
-		fs.watch(
+		watch(
 			componentsDir,
 			{ encoding: "utf8", recursive: true },
-			async (eventType, filename) => {
+			async (eventType, filenameRaw) => {
+				const filename = path.relative(componentsDir, filenameRaw);
 				const loader = ora(`Saving ${filename}`).start();
 
 				try {
