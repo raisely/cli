@@ -1,6 +1,9 @@
-# 1.5.0
+# 1.5.1
 
 - Add support for 2 factor authentication
+
+# 1.5.0
+
 - Fix style sync compatibility issues on Windows
 
 # 1.4.1
