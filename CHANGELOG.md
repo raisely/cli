@@ -1,3 +1,7 @@
+# 1.5.2
+
+- Fix style watching/compiling on Windows
+
 # 1.5.1
 
 - Add support for 2 factor authentication

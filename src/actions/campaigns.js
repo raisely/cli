@@ -33,21 +33,22 @@ export async function buildStyles(filename, config) {
 	const stylesDir = path.join(process.cwd(), "stylesheets");
 	const filePath = filename.split(path.sep)[0];
 
-	const files = await glob(`${path.join(stylesDir, filePath)}/**/*.scss`);
+  const fullPath = path.join(stylesDir, filePath);
+	const files = await glob(`${fullPath}/**/*.scss`);
 
 	const configFiles = {};
 	for (const file of files) {
 		const fileName = file
-			.replace(`${stylesDir}${path.sep}`, "")
-			.replace(`${filePath}${path.sep}`, "");
+      // `glob` above returns paths with forward slashes only,
+      // so we need to replace potential Windows-style back slashes
+      // before attempting to find and remove the full path.
+      .replace(`${fullPath.replace(/\\/g, "/")}/`, "");
 
 		// continue if this is the main stylesheet
 
 		if (fileName === `${filePath}.scss`) continue;
 
-		configFiles[
-			file.replace(`${stylesDir}/`, "").replace(`${filePath}/`, "")
-		] = fs.readFileSync(file, "utf8");
+		configFiles[fileName] = fs.readFileSync(file, "utf8");
 	}
 
 	await updateStyles(
