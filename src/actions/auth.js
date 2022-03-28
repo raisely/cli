@@ -2,10 +2,10 @@ import jwtDecode from "jwt-decode";
 import inquirer from "inquirer";
 import ora from "ora";
 
-import api from "./api";
-import { error, log } from "../helpers";
-import { doLogin } from "../login";
-import { updateConfig } from "../config";
+import api from "./api.js";
+import { error, log } from "../helpers.js";
+import { doLogin } from "../login.js";
+import { updateConfig } from "../config.js";
 
 let token = null;
 let tokenExpiresAt = null;
@@ -48,16 +48,9 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 		const permChecker = ora("Checking campaign permissions...").start();
 		try {
 			const campaignUuid = opts.campaigns[0];
-			const campaign = await api(
-				{
-					path: `/campaigns/${campaignUuid}?private=1`,
-					auth: {
-						bearer: opts.token,
-					},
-				},
-				opts.apiUrl
-			);
-			console.log(campaign.data);
+			const campaign = await api({
+				path: `/campaigns/${campaignUuid}?private=1`,
+			});
 			({ organisationUuid } = campaign.data);
 
 			permChecker.succeed();
@@ -75,15 +68,9 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 	}
 
 	if (organisationUuid) {
-		const authData = await api(
-			{
-				path: "/authenticate",
-				auth: {
-					bearer: opts.token,
-				},
-			},
-			opts.apiUrl
-		);
+		const authData = await api({
+			path: "/authenticate",
+		});
 		if (authData.organisationUuid !== organisationUuid) {
 			log(
 				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${authData.organisationUuid}`,
@@ -101,21 +88,15 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 					"Switching to correct organisation ..."
 				).start();
 				try {
-					await api(
-						{
-							path: `/users/${authData.userUuid}/move`,
-							method: "PUT",
-							json: {
-								data: {
-									organisationUuid,
-								},
-							},
-							auth: {
-								bearer: opts.token,
+					await api({
+						path: `/users/${authData.userUuid}/move`,
+						method: "PUT",
+						json: {
+							data: {
+								organisationUuid,
 							},
 						},
-						opts.apiUrl
-					);
+					});
 					loader.succeed();
 				} catch (e) {
 					error(e, loader);
@@ -127,14 +108,11 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 }
 
 export async function login(body, opts = {}) {
-	return await api(
-		{
-			path: "/login",
-			method: "POST",
-			json: body,
-		},
-		opts.apiUrl
-	);
+	return await api({
+		path: "/login",
+		method: "POST",
+		json: body,
+	});
 }
 
 export async function getToken(program, opts, warnEarly) {

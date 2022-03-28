@@ -2,11 +2,11 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
 
-import { welcome, log, br, error, informUpdate } from "./helpers";
-import { getCampaigns } from "./actions/campaigns";
-import { syncStyles, syncComponents } from "./actions/sync";
-import { saveConfig } from "./config";
-import { doLogin } from "./login";
+import { welcome, log, br, error, informUpdate } from "./helpers.js";
+import { getCampaigns } from "./actions/campaigns.js";
+import { syncStyles, syncComponents } from "./actions/sync.js";
+import { saveConfig } from "./config.js";
+import { doLogin } from "./login.js";
 
 export default function init(program) {
 	program.command("init").action(async (dir, cmd) => {
@@ -28,13 +28,12 @@ export default function init(program) {
 
 		const { user, token } = result;
 		const { organisationUuid } = user;
+		await saveConfig({ token, organisationUuid });
 
 		// load the campaigns
 		const campaignsLoader = ora("Loading your campaigns...").start();
 		try {
-			data.campaigns = await getCampaigns({}, token, {
-				apiUrl: program.api,
-			});
+			data.campaigns = await getCampaigns();
 			campaignsLoader.succeed();
 		} catch (e) {
 			return error(e, campaignsLoader);
@@ -63,10 +62,10 @@ export default function init(program) {
 		await saveConfig(config);
 
 		// sync down campaign stylesheets
-		await syncStyles(config, process.cwd());
+		await syncStyles();
 
 		// sync down custom components
-		await syncComponents(config, process.cwd());
+		await syncComponents();
 
 		br();
 		log("All done! You can start development by running:", "green");

@@ -1,18 +1,28 @@
 import chalk from "chalk";
-import get from "lodash/get";
-import request from "request-promise-native";
-import modConfig from "../package.json";
+import _ from "lodash";
+import fetch from "node-fetch";
+import fs from "fs";
+import path from "path";
 
 let updatePromise;
 let latestVersion;
 
+export function getPackageInfo() {
+	const pkg = JSON.parse(
+		fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")
+	);
+	return {
+		name: pkg.name,
+		version: pkg.version,
+	};
+}
+
 function checkUpdate() {
+	const pkg = getPackageInfo();
 	if (!updatePromise) {
-		const url = `https://registry.npmjs.org/-/package/${modConfig.name}/dist-tags`;
-		updatePromise = request({
-			url,
-			json: true,
-		})
+		const url = `https://registry.npmjs.org/-/package/${pkg.name}/dist-tags`;
+		updatePromise = fetch(url)
+			.then((result) => result.json())
 			.then((result) => {
 				latestVersion = result.latest;
 			})
@@ -31,11 +41,12 @@ export function br() {
 }
 
 export function welcome() {
+	const pkg = getPackageInfo();
 	checkUpdate();
 	log(
 		`
 ******************************
-Raisely CLI (${modConfig.version})
+Raisely CLI (${pkg.version})
 ******************************
         `,
 		"magenta"
@@ -43,9 +54,10 @@ Raisely CLI (${modConfig.version})
 }
 
 export async function informUpdate() {
+	const pkg = getPackageInfo();
 	if (updatePromise) {
 		await updatePromise;
-		if (latestVersion > modConfig.version) {
+		if (latestVersion > pkg.version) {
 			log(
 				`
 A new version of the Raisely cli is available (${latestVersion}),
@@ -61,7 +73,8 @@ To update, run:
 }
 
 export function error(e, loader) {
-	const message = get(e, "response.body.errors[0].message") || e.message || e;
+	const message =
+		_.get(e, "response.body.errors[0].message") || e.message || e;
 	if (loader) {
 		loader.fail(message);
 	} else {

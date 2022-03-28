@@ -4,14 +4,14 @@ import ora from "ora";
 import fs from "fs";
 import path from "path";
 
-import { welcome, log, br, informUpdate } from "./helpers";
-import { buildStyles, getCampaign } from "./actions/campaigns";
+import { welcome, log, br, informUpdate } from "./helpers.js";
+import { uploadStyles, getCampaign } from "./actions/campaigns.js";
 import {
 	updateComponentFile,
 	updateComponentConfig,
-} from "./actions/components";
-import { loadConfig } from "./config";
-import { getToken } from "./actions/auth";
+} from "./actions/components.js";
+import { loadConfig } from "./config.js";
+import { getToken } from "./actions/auth.js";
 
 export default function deploy(program) {
 	program.command("deploy").action(async (dir, cmd) => {
@@ -54,16 +54,11 @@ export default function deploy(program) {
 		// upload campaign stylesheets
 		for (const campaignUuid of config.campaigns) {
 			const loader = ora(`Uploading styles for ${campaignUuid}`).start();
-			const campaign = await getCampaign(
-				{ uuid: campaignUuid },
-				config.token,
-				config
-			);
+			const campaign = await getCampaign({ uuid: campaignUuid });
 
 			try {
-				await buildStyles(
-					`${campaign.data.path}/${campaign.data.path}.scss`,
-					config
+				await uploadStyles(
+					`${campaign.data.path}/${campaign.data.path}.scss`
 				);
 			} catch (e) {
 				console.error(e.stack);
@@ -91,8 +86,8 @@ export default function deploy(program) {
 				),
 			};
 
-			await updateComponentConfig(data, config);
-			await updateComponentFile(data, config);
+			await updateComponentConfig(data);
+			await updateComponentFile(data);
 			loader.succeed();
 			await informUpdate();
 		}

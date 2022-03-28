@@ -2,11 +2,14 @@ import ora from "ora";
 import path from "path";
 import fs from "fs";
 
-import api from "./api";
-import { error } from "../helpers";
+import api from "./api.js";
+import { error } from "../helpers.js";
+import { loadConfig } from "../config.js";
 
-export async function syncStyles(config, workDir) {
-	const directory = path.join(workDir, "stylesheets");
+export async function syncStyles() {
+	const config = await loadConfig();
+
+	const directory = path.join(process.cwd(), "stylesheets");
 	if (!fs.existsSync(directory)) {
 		fs.mkdirSync(directory);
 	}
@@ -14,15 +17,9 @@ export async function syncStyles(config, workDir) {
 	const loader = ora("Downloading campaign stylesheets...").start();
 	try {
 		for (const uuid of config.campaigns) {
-			const campaign = await api(
-				{
-					path: `/campaigns/${uuid}?private=true`,
-					auth: {
-						bearer: config.token,
-					},
-				},
-				config.apiUrl
-			);
+			const campaign = await api({
+				path: `/campaigns/${uuid}?private=1`,
+			});
 
 			const campaignDir = path.join(directory, campaign.data.path);
 
@@ -33,8 +30,12 @@ export async function syncStyles(config, workDir) {
 			if (campaign.data.config.css.files) {
 				const files = campaign.data.config.css.files;
 
-				for (const file of Object.keys(campaign.data.config.css.files)) {
-					const fileFolder = file.split("/").filter((f) => !f.includes("."));
+				for (const file of Object.keys(
+					campaign.data.config.css.files
+				)) {
+					const fileFolder = file
+						.split("/")
+						.filter((f) => !f.includes("."));
 					const fileName = file
 						.split("/")
 						.filter((f) => f.includes("."))
@@ -60,8 +61,8 @@ export async function syncStyles(config, workDir) {
 	}
 }
 
-export async function syncComponents(config, workDir, filter) {
-	const directory = path.join(workDir, "components");
+export async function syncComponents(filter) {
+	const directory = path.join(process.cwd(), "components");
 	if (!fs.existsSync(directory)) {
 		fs.mkdirSync(directory);
 	}
@@ -70,19 +71,9 @@ export async function syncComponents(config, workDir, filter) {
 		filter ? `Downloading ${filter}...` : "Downloading custom components..."
 	).start();
 	try {
-		const components = await api(
-			{
-				path: `/components`,
-				qs: {
-					private: 1,
-					limit: 100,
-				},
-				auth: {
-					bearer: config.token,
-				},
-			},
-			config.apiUrl
-		);
+		const components = await api({
+			path: `/components?private=1&limit=100`,
+		});
 
 		for (const component of components.data) {
 			if (filter && component.name !== filter) continue;

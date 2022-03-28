@@ -4,9 +4,12 @@ import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
 
-import { br, log, error } from "./helpers";
+import { br, log, error } from "./helpers.js";
 
 const CONFIG_FILE = ".raisely.json";
+export const defaults = {
+	apiUrl: process.env.RAISELY_API_URL || "https://api.raisely.com",
+};
 
 async function legacyLoad() {
 	const legacyConfig = "raisely.json";
@@ -20,8 +23,8 @@ async function legacyLoad() {
 			name: "confirm",
 			message: `Would you like to rename your old config (${chalk.underline(
 				legacyConfig
-			)}) to ${chalk.underline(CONFIG_FILE)} now?`
-		}
+			)}) to ${chalk.underline(CONFIG_FILE)} now?`,
+		},
 	]);
 	if (response.confirm) {
 		fs.renameSync(legacyConfig, CONFIG_FILE);
@@ -39,11 +42,11 @@ function readConfig(filename) {
 
 async function hideFile() {
 	const cwdFiles = fs.readdirSync(process.cwd());
-	if (cwdFiles.find(n => n === ".git")) {
+	if (cwdFiles.find((n) => n === ".git")) {
 		let isIgnored;
 		try {
 			const lines = fs.readFileSync(".gitignore", "utf8");
-			isIgnored = lines.split("\n").find(n => n === CONFIG_FILE);
+			isIgnored = lines.split("\n").find((n) => n === CONFIG_FILE);
 		} catch (e) {
 			// Assume that an error means the file doesn't exist
 		}
@@ -61,8 +64,8 @@ async function hideFile() {
 					name: "confirm",
 					message: `Would you like to add ${chalk.underline(
 						CONFIG_FILE
-					)} to your .gitignore now?`
-				}
+					)} to your .gitignore now?`,
+				},
 			]);
 
 			if (response.confirm) {
@@ -76,18 +79,18 @@ async function hideFile() {
 	}
 }
 
-export async function loadConfig() {
-	let config;
+export async function loadConfig({ allowEmpty = false } = {}) {
+	let config = {};
 
 	if (process.env.RAISELY_TOKEN) {
 		log("RAISELY_TOKEN found, using environment variables");
-		return {
+		return Object.assign({}, defaults, {
 			token: process.env.RAISELY_TOKEN,
 			cli: true,
-			apiUrl: process.env.RAISELY_API_URL,
+			apiUrl: process.env.RAISELY_API_URL || defaults.apiUrl,
 			campaigns: process.env.RAISELY_CAMPAIGNS.split(","),
 			$tokenFromEnv: true,
-		};
+		});
 	}
 
 	try {
@@ -96,14 +99,16 @@ export async function loadConfig() {
 		try {
 			config = await legacyLoad();
 		} catch (e2) {
-			return error(
-				`No raisely.json found. Run ${chalk.bold.underline.white(
-					"raisely init"
-				)} to start.`
-			);
+			if (!allowEmpty) {
+				return error(
+					`No raisely.json found. Run ${chalk.bold.underline.white(
+						"raisely init"
+					)} to start.`
+				);
+			}
 		}
 	}
-	return config;
+	return Object.assign({}, defaults, config);
 }
 
 export async function saveConfig(config) {
@@ -111,7 +116,7 @@ export async function saveConfig(config) {
 	const configLoader = ora(`Saving settings to ${CONFIG_FILE}...`).start();
 	fs.writeFileSync(
 		path.join(process.cwd(), CONFIG_FILE),
-		JSON.stringify(config, null, 4)
+		JSON.stringify(Object.assign({}, defaults, config), null, 4)
 	);
 	configLoader.succeed();
 	await hideFile();
@@ -119,13 +124,11 @@ export async function saveConfig(config) {
 
 export async function updateConfig(updates) {
 	// write the raisely.json config file
-	const configLoader = ora(
-		`Updating settings in ${CONFIG_FILE}...`
-	).start();
+	const configLoader = ora(`Updating settings in ${CONFIG_FILE}...`).start();
 	let config = await loadConfig();
 	const newConfig = {
 		...config,
-		...updates
+		...updates,
 	};
 	fs.writeFileSync(
 		path.join(process.cwd(), CONFIG_FILE),
