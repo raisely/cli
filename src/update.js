@@ -1,10 +1,10 @@
 import chalk from "chalk";
 import inquirer from "inquirer";
 
-import { welcome, log, br, error, informUpdate } from "./helpers";
-import { syncStyles, syncComponents } from "./actions/sync";
-import { loadConfig } from "./config";
-import { getToken } from "./actions/auth";
+import { welcome, log, br, error, informUpdate } from "./helpers.js";
+import { syncStyles, syncComponents } from "./actions/sync.js";
+import { loadConfig } from "./config.js";
+import { getToken } from "./actions/auth.js";
 
 export default function update(program) {
 	program.command("update").action(async (dir, cmd) => {
@@ -47,10 +47,10 @@ export default function update(program) {
 		}
 
 		// sync down campaign stylesheets
-		await syncStyles(config, process.cwd());
+		await syncStyles();
 
 		// sync down custom components
-		await syncComponents(config, process.cwd());
+		await syncComponents();
 
 		br();
 		log(

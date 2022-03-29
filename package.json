@@ -1,10 +1,11 @@
 {
 	"name": "@raisely/cli",
-	"version": "1.5.2",
+	"version": "1.6.0",
 	"description": "Raisely CLI for local development",
 	"main": "./src/cli.js",
+	"type": "module",
 	"bin": {
-		"raisely": "./bin/raisely"
+		"raisely": "./bin/raisely.js"
 	},
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
@@ -12,18 +13,27 @@
 	"author": "Raisely",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"dependencies": {
+		"@babel/core": "^7.17.8",
+		"@babel/plugin-proposal-class-properties": "^7.16.7",
+		"@babel/preset-env": "^7.16.11",
+		"@babel/preset-react": "^7.16.7",
 		"chalk": "^2.4.2",
 		"commander": "^2.20.0",
 		"esm": "^3.2.25",
+		"express": "^4.17.3",
+		"folder-hash": "^4.0.2",
 		"glob": "^7.1.6",
 		"glob-promise": "^3.4.0",
+		"global": "^4.4.0",
+		"http-proxy-middleware": "^2.0.4",
 		"inquirer": "^6.3.1",
 		"jwt-decode": "^3.0.0-beta.2",
 		"lodash": "^4.17.11",
+		"node-fetch": "^3.2.3",
+		"node-sass": "^7.0.1",
 		"node-watch": "^0.7.1",
-		"ora": "^3.4.0",
-		"request": "^2.88.0",
-		"request-promise-native": "^1.0.7"
+		"open": "^8.4.0",
+		"ora": "^3.4.0"
 	},
 	"devDependencies": {},
 	"repository": {

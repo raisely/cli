@@ -4,16 +4,23 @@ import fs from "fs";
 import path from "path";
 import glob from "glob-promise";
 
-import { welcome, log, br, error, informUpdate } from "./helpers";
-import watch from 'node-watch';
+import {
+	welcome,
+	log,
+	br,
+	error,
+	informUpdate,
+	informLocalDev,
+} from "./helpers.js";
+import watch from "node-watch";
 
-import { updateStyles, buildStyles } from "./actions/campaigns";
+import { updateStyles, uploadStyles } from "./actions/campaigns.js";
 import {
 	updateComponentFile,
 	updateComponentConfig,
-} from "./actions/components";
-import { getToken } from "./actions/auth";
-import { loadConfig } from "./config";
+} from "./actions/components.js";
+import { getToken } from "./actions/auth.js";
+import { loadConfig } from "./config.js";
 
 export default function start(program) {
 	program.command("start").action(async (dir, cmd) => {
@@ -25,6 +32,7 @@ export default function start(program) {
 		config.token = await getToken(program, config, true);
 
 		await informUpdate();
+		if (!(await informLocalDev(config))) return;
 
 		log(`Watching and uploading changes in this directory`, "white");
 		br();
@@ -47,7 +55,7 @@ export default function start(program) {
 				const filename = path.relative(stylesDir, filenameRaw);
 				const loader = ora(`Saving ${filename}`).start();
 
-				await buildStyles(filename, config);
+				await uploadStyles(filename, config);
 
 				loader.succeed();
 			}

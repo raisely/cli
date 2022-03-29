@@ -1,3 +1,8 @@
+# 1.6.0
+
+- Allow multiple developers to work on the one Raisely website with local compiling of components and styles.
+- Support for GitHub Actions and version managed workflows.
+
 # 1.5.2
 
 - Fix style watching/compiling on Windows

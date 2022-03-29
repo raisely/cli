@@ -2,11 +2,11 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
 
-import { welcome, log, br, error, informUpdate } from "./helpers";
-import { syncComponents } from "./actions/sync";
-import { createComponent } from "./actions/components";
-import { loadConfig } from "./config";
-import { getToken } from "./actions/auth";
+import { welcome, log, br, error, informUpdate } from "./helpers.js";
+import { syncComponents } from "./actions/sync.js";
+import { createComponent } from "./actions/components.js";
+import { loadConfig } from "./config.js";
+import { getToken } from "./actions/auth.js";
 
 export default function create(program) {
 	program
@@ -51,14 +51,14 @@ export default function create(program) {
 				`Creating custom component called "${name}"...`
 			);
 			try {
-				await createComponent({ name }, config);
+				await createComponent({ name });
 				componentLoader.succeed();
 			} catch (e) {
 				return error(e, componentLoader);
 			}
 
 			// sync down custom components
-			await syncComponents(config, process.cwd(), name);
+			await syncComponents(name);
 
 			br();
 			log(

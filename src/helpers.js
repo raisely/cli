@@ -1,18 +1,37 @@
 import chalk from "chalk";
-import get from "lodash/get";
-import request from "request-promise-native";
-import modConfig from "../package.json";
+import _ from "lodash";
+import fetch from "node-fetch";
+import fs from "fs";
+import path from "path";
+import inquirer from "inquirer";
+
+import api from "./actions/api.js";
 
 let updatePromise;
 let latestVersion;
 
+export function getPackageInfo() {
+	if (!fs.existsSync(new URL("../package.json", import.meta.url), "utf8")) {
+		return {
+			name: "@raisely/cli",
+			version: null,
+		};
+	}
+	const pkg = JSON.parse(
+		fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")
+	);
+	return {
+		name: pkg.name,
+		version: pkg.version,
+	};
+}
+
 function checkUpdate() {
-	if (!updatePromise) {
-		const url = `https://registry.npmjs.org/-/package/${modConfig.name}/dist-tags`;
-		updatePromise = request({
-			url,
-			json: true,
-		})
+	const pkg = getPackageInfo();
+	if (!updatePromise && pkg.version) {
+		const url = `https://registry.npmjs.org/-/package/${pkg.name}/dist-tags`;
+		updatePromise = fetch(url)
+			.then((result) => result.json())
 			.then((result) => {
 				latestVersion = result.latest;
 			})
@@ -31,11 +50,12 @@ export function br() {
 }
 
 export function welcome() {
+	const pkg = getPackageInfo();
 	checkUpdate();
 	log(
 		`
 ******************************
-Raisely CLI (${modConfig.version})
+Raisely CLI (${pkg.version})
 ******************************
         `,
 		"magenta"
@@ -43,9 +63,10 @@ Raisely CLI (${modConfig.version})
 }
 
 export async function informUpdate() {
-	if (updatePromise) {
+	const pkg = getPackageInfo();
+	if (updatePromise && pkg.version) {
 		await updatePromise;
-		if (latestVersion > modConfig.version) {
+		if (latestVersion > pkg.version) {
 			log(
 				`
 A new version of the Raisely cli is available (${latestVersion}),
@@ -60,8 +81,45 @@ To update, run:
 	}
 }
 
+export async function informLocalDev(config) {
+	const authData = await api({
+		path: "/authenticate",
+	});
+	const organisation = authData.data.organisation;
+	if (!organisation.private || !organisation.private.localDevelopment) {
+		// this is fine, we can continue without warning
+		return;
+	}
+
+	log(
+		`This Raisely account is set up to require local development, which usually means that you are required to use version control.`,
+		"white"
+	);
+	br();
+	log(
+		`If you continue, your changes may be overwritten by a future deployment.`,
+		"white"
+	);
+	br();
+	// collect login details
+	const response = await inquirer.prompt([
+		{
+			type: "confirm",
+			name: "confirm",
+			message: "Are you sure you want to continue?",
+		},
+	]);
+
+	if (!response.confirm) {
+		br();
+		log("Command aborted", "red");
+		return false;
+	}
+}
+
 export function error(e, loader) {
-	const message = get(e, "response.body.errors[0].message") || e.message || e;
+	const message =
+		_.get(e, "response.body.errors[0].message") || e.message || e;
 	if (loader) {
 		loader.fail(message);
 	} else {
