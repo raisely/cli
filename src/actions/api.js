@@ -24,6 +24,7 @@ export default async function api(options, apiUrl) {
 					? { Authorization: `Bearer ${config.token}` }
 					: {}),
 				...options.headers,
+				"x-raisely-cli": true,
 			},
 			body:
 				options.method !== "GET" && options.json
