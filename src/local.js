@@ -77,6 +77,12 @@ export default function start(program) {
 				(c) => c.path === campaign.path
 			).uuid;
 
+			// fetch base styles from the API
+			const base = await getBaseStyles({
+				uuid: campaignUuid,
+			});
+
+			// determine proxy target
 			const target = config.proxyUrl
 				? config.proxyUrl.replace(
 						"https://",
@@ -102,22 +108,25 @@ export default function start(program) {
 			app.use(
 				`/v3/campaigns/${campaignUuid}/styles.css`,
 				async (req, res) => {
-					// fetch base styles from the API
-					const base = await getBaseStyles({ uuid: campaignUuid });
-
-					// get the local styles to append
-					const styles = await processStyles({
-						campaign: campaign.path,
-					});
-
-					// run through SASS
-					const compiled = sass.renderSync({
-						data: base + styles,
-						outputStyle: "expanded",
-					});
-
 					res.set("Content-Type", "text/css");
-					res.send(compiled.css);
+
+					try {
+						// get the local styles to append
+						const styles = await processStyles({
+							campaign: campaign.path,
+						});
+
+						// run through SASS
+						const compiled = sass.renderSync({
+							data: base + styles,
+							outputStyle: "expanded",
+						});
+
+						res.send(compiled.css);
+					} catch (e) {
+						console.error(e);
+						res.sendStatus(500);
+					}
 				}
 			);
 
@@ -126,7 +135,13 @@ export default function start(program) {
 				`/v3/campaigns/${campaignUuid}/components.js`,
 				async (req, res) => {
 					res.set("Content-Type", "application/javascript");
-					res.send(await compileComponents());
+					try {
+						const compiled = await compileComponents();
+						res.send(compiled);
+					} catch (e) {
+						console.error(e);
+						res.sendStatus(500);
+					}
 				}
 			);
 
@@ -170,11 +185,12 @@ export default function start(program) {
 												if (!window.versionHash) {
 													window.versionHash = data.hash;
 												} else if (window.versionHash !== data.hash) {
+													clearInterval(raiselyReload)
 													window.location.reload();
 												}
 											})
 										}
-										setInterval(check, 500);
+										var raiselyReload = setInterval(check, 500);
 									</script>
 								</head>`
 								);

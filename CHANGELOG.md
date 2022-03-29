@@ -1,3 +1,12 @@
+# 1.6.2
+
+- Fixed a bug where `raisely local` was failing due to socket errors on file changes.
+- Better error handling for local style and component compiling
+
+# 1.6.1
+
+- Fix: Deploy was uploading blank files
+
 # 1.6.0
 
 - Allow multiple developers to work on the one Raisely website with local compiling of components and styles.
