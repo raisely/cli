@@ -83,7 +83,6 @@ export async function loadConfig({ allowEmpty = false } = {}) {
 	let config = {};
 
 	if (process.env.RAISELY_TOKEN) {
-		log("RAISELY_TOKEN found, using environment variables");
 		return Object.assign({}, defaults, {
 			token: process.env.RAISELY_TOKEN,
 			cli: true,
