@@ -3,6 +3,9 @@ import _ from "lodash";
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
+import inquirer from "inquirer";
+
+import api from "./actions/api.js";
 
 let updatePromise;
 let latestVersion;
@@ -75,6 +78,42 @@ To update, run:
 				"white"
 			);
 		}
+	}
+}
+
+export async function informLocalDev(config) {
+	const authData = await api({
+		path: "/authenticate",
+	});
+	const organisation = authData.data.organisation;
+	if (!organisation.private || !organisation.private.localDevelopment) {
+		// this is fine, we can continue without warning
+		return;
+	}
+
+	log(
+		`This Raisely account is set up to require local development, which usually means that you are required to use version control.`,
+		"white"
+	);
+	br();
+	log(
+		`If you continue, your changes may be overwritten by a future deployment.`,
+		"white"
+	);
+	br();
+	// collect login details
+	const response = await inquirer.prompt([
+		{
+			type: "confirm",
+			name: "confirm",
+			message: "Are you sure you want to continue?",
+		},
+	]);
+
+	if (!response.confirm) {
+		br();
+		log("Command aborted", "red");
+		return false;
 	}
 }
 

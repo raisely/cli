@@ -4,7 +4,14 @@ import fs from "fs";
 import path from "path";
 import glob from "glob-promise";
 
-import { welcome, log, br, error, informUpdate } from "./helpers.js";
+import {
+	welcome,
+	log,
+	br,
+	error,
+	informUpdate,
+	informLocalDev,
+} from "./helpers.js";
 import watch from "node-watch";
 
 import { updateStyles, uploadStyles } from "./actions/campaigns.js";
@@ -25,6 +32,7 @@ export default function start(program) {
 		config.token = await getToken(program, config, true);
 
 		await informUpdate();
+		if (!(await informLocalDev(config))) return;
 
 		log(`Watching and uploading changes in this directory`, "white");
 		br();
