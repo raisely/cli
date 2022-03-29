@@ -8,8 +8,14 @@ let updatePromise;
 let latestVersion;
 
 export function getPackageInfo() {
+	if (!fs.existsSync(new URL("../package.json", import.meta.url), "utf8")) {
+		return {
+			name: "@raisely/cli",
+			version: null,
+		};
+	}
 	const pkg = JSON.parse(
-		fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")
+		fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")
 	);
 	return {
 		name: pkg.name,
@@ -19,7 +25,7 @@ export function getPackageInfo() {
 
 function checkUpdate() {
 	const pkg = getPackageInfo();
-	if (!updatePromise) {
+	if (!updatePromise && pkg.version) {
 		const url = `https://registry.npmjs.org/-/package/${pkg.name}/dist-tags`;
 		updatePromise = fetch(url)
 			.then((result) => result.json())
@@ -55,7 +61,7 @@ Raisely CLI (${pkg.version})
 
 export async function informUpdate() {
 	const pkg = getPackageInfo();
-	if (updatePromise) {
+	if (updatePromise && pkg.version) {
 		await updatePromise;
 		if (latestVersion > pkg.version) {
 			log(
