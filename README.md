@@ -12,6 +12,8 @@ The Raisely CLI allows for fast and easy development on the Raisely platform. Th
 
 The CLI is built on Node.js, so you'll need Node.js installed to use it.
 
+For an intro and an explainer on local development in Raisely, read our [Raisely Developers Quickstart](https://developers.raisely.com/docs/developer-quickstart).
+
 ## Issues
 
 For problems directly related to the CLI, [add an issue on GitHub](https://github.com/raisely/cli/issues/new).
@@ -25,10 +27,12 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 
 ## Commands
 
--   `raisely init` - start a new Raisely project, authenticate and sync your campaigns
--   `raisely update` - update local copies of styles and components from the API
--   `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
--   `raisely start` - starts watching for and uploading changes to styles and components
+- `raisely init` - start a new Raisely project, authenticate and sync your campaigns
+- `raisely update` - update local copies of styles and components from the API
+- `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
+- `raisely start` - starts watching for and uploading changes to styles and components
+- `raisely deploy` - deploy your local code to Raisely
+- `raisely local` - work locally on a Raisely campaign without syncing changes up
 
 ## CI/CD Usage
 
@@ -36,8 +40,8 @@ Raisely CLI supports usage in a CI/CD environment for auto-deployment of styles 
 
 Raisely CLI supports the following environment variables:
 
--   `RAISELY_TOKEN` – your API secret key
--   `RAISELY_CAMPAIGNS` - a comma-separated list of campaign uuids to sync (so you can be selective)
+- `RAISELY_TOKEN` – your API secret key
+- `RAISELY_CAMPAIGNS` - a comma-separated list of campaign uuids to sync (so you can be selective)
 
 _Note: All components are always synced, when they're present in the directory your syncing_
 
