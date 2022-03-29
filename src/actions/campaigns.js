@@ -98,5 +98,6 @@ export async function updateStyles({ path, files, css }, config) {
 	return await api({
 		path: `/campaigns/${path}/config/css?private=1`,
 		method: "PATCH",
+		json: { data },
 	});
 }
