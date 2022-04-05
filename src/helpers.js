@@ -88,7 +88,7 @@ export async function informLocalDev(config) {
 	const organisation = authData.data.organisation;
 	if (!organisation.private || !organisation.private.localDevelopment) {
 		// this is fine, we can continue without warning
-		return;
+		return true;
 	}
 
 	log(
