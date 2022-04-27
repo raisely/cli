@@ -115,6 +115,8 @@ export async function informLocalDev(config) {
 		log("Command aborted", "red");
 		return false;
 	}
+
+	return true;
 }
 
 export function error(e, loader) {

@@ -1,6 +1,6 @@
 {
 	"name": "@raisely/cli",
-	"version": "1.6.3",
+	"version": "1.6.4",
 	"description": "Raisely CLI for local development",
 	"main": "./src/cli.js",
 	"type": "module",
