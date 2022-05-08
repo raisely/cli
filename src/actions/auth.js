@@ -126,7 +126,6 @@ export async function getToken(program, opts, warnEarly) {
 	}
 	if (isTokenExpired(warnEarly)) {
 		({ token } = await doLogin(
-			program,
 			'Your token has expired, please login again'
 		));
 		setTokenExpiresAt();

@@ -2,7 +2,6 @@ import chalk from 'chalk';
 import _ from 'lodash';
 import fetch from 'node-fetch';
 import fs from 'fs';
-import path from 'path';
 import inquirer from 'inquirer';
 
 import api from './actions/api.js';

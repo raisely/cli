@@ -1,25 +1,51 @@
 import program from 'commander';
-
-import init from './init.js';
-import update from './update.js';
-import start from './start.js';
-import create from './create.js';
-import deploy from './deploy.js';
-import login from './login.js';
-import local from './local.js';
 import { getPackageInfo } from './helpers.js';
 
-export async function cli(args) {
+/**
+ * Action creator - only loads modules for commands when individually invoked
+ * @param moduleLoader
+ * @returns {(function(...[*]): Promise<void>)|*}
+ */
+function actionBuilder(moduleLoader) {
+	return async function runtime(...args) {
+		// load the module
+		const { default: commandContext } = await moduleLoader();
+		await commandContext(...args);
+	};
+}
+
+// define actions
+const init = actionBuilder(() => import('./init.js'));
+const update = actionBuilder(() => import('./update.js'));
+const start = actionBuilder(() => import('./start.js'));
+const create = actionBuilder(() => import('./create.js'));
+const deploy = actionBuilder(() => import('./deploy.js'));
+const login = actionBuilder(() => import('./login.js'));
+const local = actionBuilder(() => import('./local.js'));
+
+export async function cli() {
 	const pkg = getPackageInfo();
 	program.version(pkg.version);
 
-	init(program);
-	update(program);
-	start(program);
-	create(program);
-	deploy(program);
-	login(program);
-	local(program);
+	program.command('init').action(init);
+
+	program.command('update').action(update);
+
+	program.command('start').action(start);
+
+	program
+		.command('create [name]')
+		.description('create a new custom component')
+		.action(create);
+
+	program.command('deploy').action(deploy);
+
+	program.command('login').action(login);
+
+	program
+		.command('local')
+		.description('Start local development server for a single campaign.')
+		.action(local);
 
 	program.parse(process.argv);
 }

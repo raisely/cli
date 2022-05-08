@@ -1,3 +1,4 @@
+import program from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
 import { login } from './actions/auth.js';
@@ -5,7 +6,7 @@ import { login } from './actions/auth.js';
 import { updateConfig } from './config.js';
 import { log, error, informUpdate } from './helpers.js';
 
-export async function doLogin(program, message) {
+export async function doLogin(message) {
 	if (message) log(message, 'white');
 
 	// collect login details
@@ -65,14 +66,12 @@ export async function doLogin(program, message) {
 	}
 }
 
-export default function loginAction(program) {
-	program.command('login').action(async (dir, cmd) => {
-		const result = await doLogin(program);
-		if (!result) return;
-		const { token, user } = result;
-		await updateConfig({
-			token,
-		});
-		await informUpdate();
+export default async function loginAction() {
+	const result = await doLogin();
+	if (!result) return;
+	const { token, user } = result;
+	await updateConfig({
+		token,
 	});
+	await informUpdate();
 }
