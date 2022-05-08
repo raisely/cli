@@ -1,3 +1,11 @@
+
+# 1.6.5
+
+- Fixed win32 filesystem handling
+- Fixed performance issue with Babel loading in before component deploy (causing long pauses)
+- Some minor dead code removal
+- Fixed api layer to use correct error handling (based on response headers), instead of relying on original payload
+
 # 1.6.2
 
 - Fixed a bug where `raisely local` was failing due to socket errors on file changes.

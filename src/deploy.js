@@ -54,11 +54,12 @@ export default function deploy(program) {
 		// upload campaign stylesheets
 		for (const campaignUuid of config.campaigns) {
 			const loader = ora(`Uploading styles for ${campaignUuid}`).start();
+
 			const campaign = await getCampaign({ uuid: campaignUuid });
 
 			try {
 				await uploadStyles(
-					`${campaign.data.path}/${campaign.data.path}.scss`
+					`${campaign.data.path}${path.sep}${campaign.data.path}.scss`,
 				);
 			} catch (e) {
 				console.error(e.stack);
@@ -73,7 +74,6 @@ export default function deploy(program) {
 		for (const file of fs.readdirSync(componentsDir)) {
 			const loader = ora(`Uploading component ${file}`).start();
 			const data = {
-				file,
 				file: fs.readFileSync(
 					path.join(componentsDir, file, `${file}.js`),
 					"utf8"

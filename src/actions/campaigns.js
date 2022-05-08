@@ -24,7 +24,7 @@ export async function getBaseStyles({ uuid }) {
 	});
 }
 
-export async function fetchStyles({ campaign, filename, config }) {
+export async function fetchStyles({ campaign, filename }) {
 	const stylesDir = path.join(process.cwd(), "stylesheets");
 	const filePath = campaign || filename.split(path.sep)[0];
 
@@ -47,7 +47,6 @@ export async function fetchStyles({ campaign, filename, config }) {
 	}
 
 	return {
-		filePath,
 		configFiles,
 		css: fs.readFileSync(
 			path.join(stylesDir, filePath, `${filePath}.scss`),
@@ -68,35 +67,26 @@ export async function processStyles({ campaign, config }) {
 	return output;
 }
 
-export async function uploadStyles(filename, config) {
-	const { filePath, configFiles, css } = await fetchStyles({
-		filename,
-		config,
-	});
+export async function uploadStyles(filename) {
+	// The filename will contain the relative campaign path (needs to be posix)
+	const [campaignPath] = filename.split(path.sep);
 
-	await updateStyles(
-		{
-			path: filePath,
-			files: configFiles,
-			css,
-		},
-		config
-	);
-}
-
-export async function updateStyles({ path, files, css }, config) {
 	const campaign = await api({
-		path: `/campaigns/${path}?private=1`,
+		path: `/campaigns/${campaignPath}?private=1`,
 		method: "GET",
 	});
 
+	const { configFiles, css } = await fetchStyles({
+		filename,
+	});
+
 	const data = Object.assign({}, campaign.data.config.css, {
-		files,
+		files: configFiles,
 		custom_css: css,
 	});
 
 	return await api({
-		path: `/campaigns/${path}/config/css?private=1`,
+		path: `/campaigns/${campaignPath}/config/css?private=1`,
 		method: "PATCH",
 		json: { data },
 	});

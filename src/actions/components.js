@@ -1,14 +1,34 @@
 import api from "./api.js";
-import Babel from "@babel/core";
-import presetEnv from "@babel/preset-env";
-import presetReact from "@babel/preset-react";
-import classProps from "@babel/plugin-proposal-class-properties";
+
 import path from "path";
 import fs from "fs";
 
-Babel.createConfigItem(presetEnv);
-Babel.createConfigItem(presetReact);
-Babel.createConfigItem(classProps);
+let BabelAlreadyLoaded = false;
+
+// Only load the Babel compiling core when needed
+async function loadBabelCore() {
+	const [
+		{ default: Babel },
+		{ default: presetEnv },
+		{ default: presetReact },
+		{ default: classProps }
+	] = await Promise.all([
+		import("@babel/core"),
+		import("@babel/preset-env"),
+		import("@babel/preset-react"),
+		import("@babel/plugin-proposal-class-properties")
+	]);
+
+	if (!BabelAlreadyLoaded) {
+		Babel.createConfigItem(presetEnv);
+		Babel.createConfigItem(presetReact);
+		Babel.createConfigItem(classProps);
+		// flag as initialized
+		BabelAlreadyLoaded = true
+	}
+
+	return { Babel, presetEnv, presetReact, classProps };
+}
 
 async function getComponent(uuid, opts = {}) {
 	return await api({
@@ -110,6 +130,13 @@ function toRawJavaScript(component, ensureRuntimeSafety = true) {
 }
 
 export async function compileComponents() {
+	const {
+		Babel,
+		presetEnv,
+		presetReact,
+		classProps
+	} = await loadBabelCore();
+
 	let output = `if (!window.RaiselyPrivateComponents) window.RaiselyPrivateComponents = [];`;
 	const componentsDir = path.join(process.cwd(), "components");
 	const components = [];

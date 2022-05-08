@@ -6,13 +6,21 @@ const devHttpsAgent = new https.Agent({
 	rejectUnauthorized: false,
 });
 
-export default async function api(options, apiUrl) {
+function getResponseContentType(response) {
+	const rawResponseContentType = response.headers.get('Content-Type');
+	const [contentType] = rawResponseContentType.split(';');
+	return contentType;
+}
+
+export default async function api(options) {
 	const config = await loadConfig({ allowEmpty: true });
 	const isJson =
 		!options.path.includes(".js") && !options.path.includes(".css");
 
+	const fetchUrl = `${config.apiUrl}/v3${options.path}`;
+
 	const response = await fetch(
-		`${config.apiUrl}/v3${options.path}`,
+		fetchUrl,
 		Object.assign(options, {
 			headers: {
 				...(isJson
@@ -34,10 +42,22 @@ export default async function api(options, apiUrl) {
 		})
 	);
 
-	const formatted = isJson ? await response.json() : await response.text();
+	// Use the actual response type header, don't just guess
+	const contentType = getResponseContentType(response);
+	const responseIsJSON = contentType === 'application/json';
+
+	const parseFormat = responseIsJSON ? 'json' : 'text';
+	const formatted = await response[parseFormat]();
 
 	if (response.status > 399) {
-		throw new Error(formatted.detail);
+		// Add extra line break before throwing error - for better visual grep
+		console.error('');
+
+		const formattedError =
+			`${fetchUrl} (${response.status}) failed with message: ${
+				(responseIsJSON && formatted.detail) || response.statusText}`;
+
+		throw new Error(formattedError);
 	}
 
 	return formatted;
