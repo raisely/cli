@@ -18,7 +18,6 @@ import { welcome, log, br, error, informUpdate } from "./helpers.js";
 import watch from "node-watch";
 
 import {
-	updateStyles,
 	processStyles,
 	getBaseStyles,
 } from "./actions/campaigns.js";

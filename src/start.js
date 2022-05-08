@@ -14,7 +14,7 @@ import {
 } from "./helpers.js";
 import watch from "node-watch";
 
-import { updateStyles, uploadStyles } from "./actions/campaigns.js";
+import { uploadStyles } from "./actions/campaigns.js";
 import {
 	updateComponentFile,
 	updateComponentConfig,
@@ -55,7 +55,7 @@ export default function start(program) {
 				const filename = path.relative(stylesDir, filenameRaw);
 				const loader = ora(`Saving ${filename}`).start();
 
-				await uploadStyles(filename, config);
+				await uploadStyles(filename);
 
 				loader.succeed();
 			}
