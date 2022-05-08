@@ -1,38 +1,35 @@
-import chalk from "chalk";
-import ora from "ora";
-import fs from "fs";
-import path from "path";
-import glob from "glob-promise";
-import inquirer from "inquirer";
-import express from "express";
-import open from "open";
-import sass from "node-sass";
-import { hashElement } from "folder-hash";
+import chalk from 'chalk';
+import ora from 'ora';
+import fs from 'fs';
+import path from 'path';
+import glob from 'glob-promise';
+import inquirer from 'inquirer';
+import express from 'express';
+import open from 'open';
+import sass from 'node-sass';
+import { hashElement } from 'folder-hash';
 
 import {
 	createProxyMiddleware,
 	responseInterceptor,
-} from "http-proxy-middleware";
+} from 'http-proxy-middleware';
 
-import { welcome, log, br, error, informUpdate } from "./helpers.js";
-import watch from "node-watch";
+import { welcome, log, br, error, informUpdate } from './helpers.js';
+import watch from 'node-watch';
 
-import {
-	processStyles,
-	getBaseStyles,
-} from "./actions/campaigns.js";
-import { compileComponents } from "./actions/components.js";
-import { getCampaigns } from "./actions/campaigns.js";
-import { getToken } from "./actions/auth.js";
-import { loadConfig } from "./config.js";
+import { processStyles, getBaseStyles } from './actions/campaigns.js';
+import { compileComponents } from './actions/components.js';
+import { getCampaigns } from './actions/campaigns.js';
+import { getToken } from './actions/auth.js';
+import { loadConfig } from './config.js';
 
 // local development config
 const PORT = 8015;
 
 export default function start(program) {
 	program
-		.command("local")
-		.description("Start local development server for a single campaign.")
+		.command('local')
+		.description('Start local development server for a single campaign.')
 		.action(async (dir, cmd) => {
 			welcome();
 
@@ -48,7 +45,7 @@ export default function start(program) {
 			const data = {};
 
 			// load the campaigns
-			const campaignsLoader = ora("Loading your campaigns...").start();
+			const campaignsLoader = ora('Loading your campaigns...').start();
 			try {
 				data.campaigns = await getCampaigns({}, config.token, {
 					apiUrl: program.api,
@@ -62,9 +59,9 @@ export default function start(program) {
 			// select the campaigns to sync
 			const campaign = await inquirer.prompt([
 				{
-					type: "list",
-					name: "path",
-					message: "Select the campaign to open:",
+					type: 'list',
+					name: 'path',
+					message: 'Select the campaign to open:',
 					choices: data.campaigns.data.map((c) => ({
 						name: `${c.name} (${c.path})`,
 						value: c.path,
@@ -84,20 +81,20 @@ export default function start(program) {
 			// determine proxy target
 			const target = config.proxyUrl
 				? config.proxyUrl.replace(
-						"https://",
+						'https://',
 						`https://${campaign.path}.`
 				  )
 				: `https://${campaign.path}.raisely.com`;
 
 			const app = express();
 
-			app.use("/reload", async (req, res) => {
-				const hash = await hashElement(".", {
+			app.use('/reload', async (req, res) => {
+				const hash = await hashElement('.', {
 					files: {
-						include: ["**/*.js", "**/*.scss"],
+						include: ['**/*.js', '**/*.scss'],
 					},
 					folders: {
-						exclude: [".*", "node_modules", "src", ".git", "bin"],
+						exclude: ['.*', 'node_modules', 'src', '.git', 'bin'],
 					},
 				});
 				res.send({ hash: hash.hash });
@@ -107,7 +104,7 @@ export default function start(program) {
 			app.use(
 				`/v3/campaigns/${campaignUuid}/styles.css`,
 				async (req, res) => {
-					res.set("Content-Type", "text/css");
+					res.set('Content-Type', 'text/css');
 
 					try {
 						// get the local styles to append
@@ -118,7 +115,7 @@ export default function start(program) {
 						// run through SASS
 						const compiled = sass.renderSync({
 							data: base + styles,
-							outputStyle: "expanded",
+							outputStyle: 'expanded',
 						});
 
 						res.send(compiled.css);
@@ -133,7 +130,7 @@ export default function start(program) {
 			app.use(
 				`/v3/campaigns/${campaignUuid}/components.js`,
 				async (req, res) => {
-					res.set("Content-Type", "application/javascript");
+					res.set('Content-Type', 'application/javascript');
 					try {
 						const compiled = await compileComponents();
 						res.send(compiled);
@@ -146,7 +143,7 @@ export default function start(program) {
 
 			// set up the Raisely proxy
 			app.use(
-				"/",
+				'/',
 				createProxyMiddleware({
 					target,
 					changeOrigin: true,
@@ -157,24 +154,24 @@ export default function start(program) {
 					selfHandleResponse: true,
 					onProxyRes: responseInterceptor(
 						async (responseBuffer, proxyRes, req, res) => {
-							const response = responseBuffer.toString("utf8"); // convert buffer to string
+							const response = responseBuffer.toString('utf8'); // convert buffer to string
 							return response
 								.replace(
 									`${
 										config.apiUrl ||
-										"https://api.raisely.com"
+										'https://api.raisely.com'
 									}/v3/campaigns/${campaignUuid}/styles.css`,
 									`http://localhost:${PORT}/v3/campaigns/${campaignUuid}/styles.css`
 								)
 								.replace(
 									`${
 										config.apiUrl ||
-										"https://api.raisely.com"
+										'https://api.raisely.com'
 									}/v3/campaigns/${campaignUuid}/components.js`,
 									`http://localhost:${PORT}/v3/campaigns/${campaignUuid}/components.js`
 								)
 								.replace(
-									"</head>",
+									'</head>',
 									`
 									<script>
 										const check = () => {
@@ -200,7 +197,7 @@ export default function start(program) {
 
 			app.listen(PORT);
 
-			log(`Local development for ${target} has been set up in:`, "white");
+			log(`Local development for ${target} has been set up in:`, 'white');
 			br();
 			console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
 			br();
@@ -211,8 +208,8 @@ export default function start(program) {
 				);
 				br();
 			}
-			log(`Opening your development site now...`, "white");
-			log(`Use CTRL + C to stop`, "white");
+			log(`Opening your development site now...`, 'white');
+			log(`Use CTRL + C to stop`, 'white');
 
 			open(`http://localhost:${PORT}`, {
 				background: true,

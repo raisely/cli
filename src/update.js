@@ -1,13 +1,13 @@
-import chalk from "chalk";
-import inquirer from "inquirer";
+import chalk from 'chalk';
+import inquirer from 'inquirer';
 
-import { welcome, log, br, error, informUpdate } from "./helpers.js";
-import { syncStyles, syncComponents } from "./actions/sync.js";
-import { loadConfig } from "./config.js";
-import { getToken } from "./actions/auth.js";
+import { welcome, log, br, error, informUpdate } from './helpers.js';
+import { syncStyles, syncComponents } from './actions/sync.js';
+import { loadConfig } from './config.js';
+import { getToken } from './actions/auth.js';
 
 export default function update(program) {
-	program.command("update").action(async (dir, cmd) => {
+	program.command('update').action(async (dir, cmd) => {
 		// load config
 		let config = await loadConfig();
 
@@ -19,7 +19,7 @@ export default function update(program) {
 		welcome();
 		log(
 			`You are about to update the styles and components in this directory`,
-			"white"
+			'white'
 		);
 		br();
 		console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
@@ -29,21 +29,21 @@ export default function update(program) {
 			console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
 			br();
 		}
-		log(`You will lose any unsaved changes.`, "white");
+		log(`You will lose any unsaved changes.`, 'white');
 		br();
 
 		// collect login details
 		const response = await inquirer.prompt([
 			{
-				type: "confirm",
-				name: "confirm",
-				message: "Are you sure you want to continue?",
+				type: 'confirm',
+				name: 'confirm',
+				message: 'Are you sure you want to continue?',
 			},
 		]);
 
 		if (!response.confirm) {
 			br();
-			return log("Update aborted", "red");
+			return log('Update aborted', 'red');
 		}
 
 		// sync down campaign stylesheets
@@ -55,9 +55,9 @@ export default function update(program) {
 		br();
 		log(
 			`All done! Run ${chalk.bold.underline.white(
-				"raisely start"
+				'raisely start'
 			)} to begin.`,
-			"green"
+			'green'
 		);
 		await informUpdate();
 	});

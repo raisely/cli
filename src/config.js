@@ -1,26 +1,26 @@
-import chalk from "chalk";
-import ora from "ora";
-import fs from "fs";
-import path from "path";
-import inquirer from "inquirer";
+import chalk from 'chalk';
+import ora from 'ora';
+import fs from 'fs';
+import path from 'path';
+import inquirer from 'inquirer';
 
-import { br, log, error } from "./helpers.js";
+import { br, log, error } from './helpers.js';
 
-const CONFIG_FILE = ".raisely.json";
+const CONFIG_FILE = '.raisely.json';
 export const defaults = {
-	apiUrl: process.env.RAISELY_API_URL || "https://api.raisely.com",
+	apiUrl: process.env.RAISELY_API_URL || 'https://api.raisely.com',
 };
 
 async function legacyLoad() {
-	const legacyConfig = "raisely.json";
+	const legacyConfig = 'raisely.json';
 	const config = readConfig(legacyConfig);
 	// move to new config file
 	br();
 	log(`@raisely/cli now uses ${chalk.bold.white(CONFIG_FILE)}`);
 	const response = await inquirer.prompt([
 		{
-			type: "confirm",
-			name: "confirm",
+			type: 'confirm',
+			name: 'confirm',
 			message: `Would you like to rename your old config (${chalk.underline(
 				legacyConfig
 			)}) to ${chalk.underline(CONFIG_FILE)} now?`,
@@ -42,26 +42,26 @@ function readConfig(filename) {
 
 async function hideFile() {
 	const cwdFiles = fs.readdirSync(process.cwd());
-	if (cwdFiles.find((n) => n === ".git")) {
+	if (cwdFiles.find((n) => n === '.git')) {
 		let isIgnored;
 		try {
-			const lines = fs.readFileSync(".gitignore", "utf8");
-			isIgnored = lines.split("\n").find((n) => n === CONFIG_FILE);
+			const lines = fs.readFileSync('.gitignore', 'utf8');
+			isIgnored = lines.split('\n').find((n) => n === CONFIG_FILE);
 		} catch (e) {
 			// Assume that an error means the file doesn't exist
 		}
 		if (!isIgnored) {
-			log("You appear to be in a git repository.");
+			log('You appear to be in a git repository.');
 			log(
 				`To keep credentials out of source control, ${chalk.bold.white(
 					CONFIG_FILE
 				)} should be added to your .gitignore file`,
-				"white"
+				'white'
 			);
 			const response = await inquirer.prompt([
 				{
-					type: "confirm",
-					name: "confirm",
+					type: 'confirm',
+					name: 'confirm',
 					message: `Would you like to add ${chalk.underline(
 						CONFIG_FILE
 					)} to your .gitignore now?`,
@@ -69,8 +69,8 @@ async function hideFile() {
 			]);
 
 			if (response.confirm) {
-				const lineToAdd = "\n" + CONFIG_FILE + "\n";
-				fs.appendFileSync(".gitignore", lineToAdd);
+				const lineToAdd = '\n' + CONFIG_FILE + '\n';
+				fs.appendFileSync('.gitignore', lineToAdd);
 				return log(
 					`${chalk.white.underline(CONFIG_FILE)} added to .gitignore`
 				);
@@ -87,7 +87,7 @@ export async function loadConfig({ allowEmpty = false } = {}) {
 			token: process.env.RAISELY_TOKEN,
 			cli: true,
 			apiUrl: process.env.RAISELY_API_URL || defaults.apiUrl,
-			campaigns: process.env.RAISELY_CAMPAIGNS.split(","),
+			campaigns: process.env.RAISELY_CAMPAIGNS.split(','),
 			$tokenFromEnv: true,
 		});
 	}
@@ -101,7 +101,7 @@ export async function loadConfig({ allowEmpty = false } = {}) {
 			if (!allowEmpty) {
 				return error(
 					`No raisely.json found. Run ${chalk.bold.underline.white(
-						"raisely init"
+						'raisely init'
 					)} to start.`
 				);
 			}

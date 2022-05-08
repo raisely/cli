@@ -1,31 +1,31 @@
-import glob from "glob-promise";
-import path from "path";
-import fs from "fs";
-import api from "./api.js";
+import glob from 'glob-promise';
+import path from 'path';
+import fs from 'fs';
+import api from './api.js';
 
 export async function getCampaigns() {
 	return await api({
-		path: "/campaigns",
-		method: "GET",
+		path: '/campaigns',
+		method: 'GET',
 	});
 }
 
 export async function getCampaign({ uuid }) {
 	return await api({
 		path: `/campaigns/${uuid}`,
-		method: "GET",
+		method: 'GET',
 	});
 }
 
 export async function getBaseStyles({ uuid }) {
 	return await api({
 		path: `/campaigns/${uuid}/base.css?asSass=1`,
-		method: "GET",
+		method: 'GET',
 	});
 }
 
 export async function fetchStyles({ campaign, filename }) {
-	const stylesDir = path.join(process.cwd(), "stylesheets");
+	const stylesDir = path.join(process.cwd(), 'stylesheets');
 	const filePath = campaign || filename.split(path.sep)[0];
 
 	const fullPath = path.join(stylesDir, filePath);
@@ -37,20 +37,20 @@ export async function fetchStyles({ campaign, filename }) {
 			// `glob` above returns paths with forward slashes only,
 			// so we need to replace potential Windows-style back slashes
 			// before attempting to find and remove the full path.
-			.replace(`${fullPath.replace(/\\/g, "/")}/`, "");
+			.replace(`${fullPath.replace(/\\/g, '/')}/`, '');
 
 		// continue if this is the main stylesheet
 
 		if (fileName === `${filePath}.scss`) continue;
 
-		configFiles[fileName] = fs.readFileSync(file, "utf8");
+		configFiles[fileName] = fs.readFileSync(file, 'utf8');
 	}
 
 	return {
 		configFiles,
 		css: fs.readFileSync(
 			path.join(stylesDir, filePath, `${filePath}.scss`),
-			"utf8"
+			'utf8'
 		),
 	};
 }
@@ -73,7 +73,7 @@ export async function uploadStyles(filename) {
 
 	const campaign = await api({
 		path: `/campaigns/${campaignPath}?private=1`,
-		method: "GET",
+		method: 'GET',
 	});
 
 	const { configFiles, css } = await fetchStyles({
@@ -87,7 +87,7 @@ export async function uploadStyles(filename) {
 
 	return await api({
 		path: `/campaigns/${campaignPath}/config/css?private=1`,
-		method: "PATCH",
+		method: 'PATCH',
 		json: { data },
 	});
 }

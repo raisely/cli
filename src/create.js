@@ -1,17 +1,17 @@
-import chalk from "chalk";
-import inquirer from "inquirer";
-import ora from "ora";
+import chalk from 'chalk';
+import inquirer from 'inquirer';
+import ora from 'ora';
 
-import { welcome, log, br, error, informUpdate } from "./helpers.js";
-import { syncComponents } from "./actions/sync.js";
-import { createComponent } from "./actions/components.js";
-import { loadConfig } from "./config.js";
-import { getToken } from "./actions/auth.js";
+import { welcome, log, br, error, informUpdate } from './helpers.js';
+import { syncComponents } from './actions/sync.js';
+import { createComponent } from './actions/components.js';
+import { loadConfig } from './config.js';
+import { getToken } from './actions/auth.js';
 
 export default function create(program) {
 	program
-		.command("create [name]")
-		.description("create a new custom component")
+		.command('create [name]')
+		.description('create a new custom component')
 		.action(async (name, cmd) => {
 			welcome();
 
@@ -21,9 +21,9 @@ export default function create(program) {
 
 			log(
 				`You are creating a new custom component${
-					name ? ` called ${name}` : ""
+					name ? ` called ${name}` : ''
 				}. The component will be downloaded to:`,
-				"white"
+				'white'
 			);
 			br();
 			console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
@@ -33,9 +33,9 @@ export default function create(program) {
 			if (!name) {
 				const response = await inquirer.prompt([
 					{
-						type: "input",
-						name: "name",
-						message: "Name of your component",
+						type: 'input',
+						name: 'name',
+						message: 'Name of your component',
 						validate: (value) => {
 							return value && /^[a-z0-9-]+$/.test(value)
 								? true
@@ -63,9 +63,9 @@ export default function create(program) {
 			br();
 			log(
 				`All done! Run ${chalk.bold.underline.white(
-					"raisely start"
+					'raisely start'
 				)} to begin.`,
-				"green"
+				'green'
 			);
 			await informUpdate();
 		});

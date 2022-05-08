@@ -1,26 +1,26 @@
-import chalk from "chalk";
-import inquirer from "inquirer";
-import ora from "ora";
+import chalk from 'chalk';
+import inquirer from 'inquirer';
+import ora from 'ora';
 
-import { welcome, log, br, error, informUpdate } from "./helpers.js";
-import { getCampaigns } from "./actions/campaigns.js";
-import { syncStyles, syncComponents } from "./actions/sync.js";
-import { saveConfig } from "./config.js";
-import { doLogin } from "./login.js";
+import { welcome, log, br, error, informUpdate } from './helpers.js';
+import { getCampaigns } from './actions/campaigns.js';
+import { syncStyles, syncComponents } from './actions/sync.js';
+import { saveConfig } from './config.js';
+import { doLogin } from './login.js';
 
 export default function init(program) {
-	program.command("init").action(async (dir, cmd) => {
+	program.command('init').action(async (dir, cmd) => {
 		const data = {};
 
 		welcome();
 		log(
 			`You're about to initialize a Raisely campaign in this directory`,
-			"white"
+			'white'
 		);
 		br();
 		console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
 		br();
-		log(`Log in to your Raisely account to start:`, "white");
+		log(`Log in to your Raisely account to start:`, 'white');
 		br();
 
 		const result = await doLogin(program);
@@ -31,7 +31,7 @@ export default function init(program) {
 		await saveConfig({ token, organisationUuid });
 
 		// load the campaigns
-		const campaignsLoader = ora("Loading your campaigns...").start();
+		const campaignsLoader = ora('Loading your campaigns...').start();
 		try {
 			data.campaigns = await getCampaigns();
 			campaignsLoader.succeed();
@@ -42,9 +42,9 @@ export default function init(program) {
 		// select the campaigns to sync
 		const campaigns = await inquirer.prompt([
 			{
-				type: "checkbox",
-				name: "campaigns",
-				message: "Select the campaigns to sync:",
+				type: 'checkbox',
+				name: 'campaigns',
+				message: 'Select the campaigns to sync:',
 				choices: data.campaigns.data.map((c) => ({
 					name: `${c.name} (${c.path})`,
 					value: c.uuid,
@@ -68,13 +68,13 @@ export default function init(program) {
 		await syncComponents();
 
 		br();
-		log("All done! You can start development by running:", "green");
+		log('All done! You can start development by running:', 'green');
 		br();
-		log("raisely start", "inverse");
+		log('raisely start', 'inverse');
 		br();
-		log("To update your local files run:", "green");
+		log('To update your local files run:', 'green');
 		br();
-		log("raisely update", "inverse");
+		log('raisely update', 'inverse');
 		br();
 		await informUpdate();
 	});

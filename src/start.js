@@ -1,8 +1,8 @@
-import chalk from "chalk";
-import ora from "ora";
-import fs from "fs";
-import path from "path";
-import glob from "glob-promise";
+import chalk from 'chalk';
+import ora from 'ora';
+import fs from 'fs';
+import path from 'path';
+import glob from 'glob-promise';
 
 import {
 	welcome,
@@ -11,19 +11,19 @@ import {
 	error,
 	informUpdate,
 	informLocalDev,
-} from "./helpers.js";
-import watch from "node-watch";
+} from './helpers.js';
+import watch from 'node-watch';
 
-import { uploadStyles } from "./actions/campaigns.js";
+import { uploadStyles } from './actions/campaigns.js';
 import {
 	updateComponentFile,
 	updateComponentConfig,
-} from "./actions/components.js";
-import { getToken } from "./actions/auth.js";
-import { loadConfig } from "./config.js";
+} from './actions/components.js';
+import { getToken } from './actions/auth.js';
+import { loadConfig } from './config.js';
 
 export default function start(program) {
-	program.command("start").action(async (dir, cmd) => {
+	program.command('start').action(async (dir, cmd) => {
 		welcome();
 
 		// load config
@@ -34,7 +34,7 @@ export default function start(program) {
 		await informUpdate();
 		if (!(await informLocalDev(config))) return;
 
-		log(`Watching and uploading changes in this directory`, "white");
+		log(`Watching and uploading changes in this directory`, 'white');
 		br();
 		console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
 		br();
@@ -43,14 +43,14 @@ export default function start(program) {
 			console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
 			br();
 		}
-		log(`Use CTRL + C to stop`, "white");
+		log(`Use CTRL + C to stop`, 'white');
 
 		// watch folders
-		const stylesDir = path.join(process.cwd(), "stylesheets");
-		const componentsDir = path.join(process.cwd(), "components");
+		const stylesDir = path.join(process.cwd(), 'stylesheets');
+		const componentsDir = path.join(process.cwd(), 'components');
 		watch(
 			stylesDir,
-			{ encoding: "utf8", recursive: true },
+			{ encoding: 'utf8', recursive: true },
 			async (eventType, filenameRaw) => {
 				const filename = path.relative(stylesDir, filenameRaw);
 				const loader = ora(`Saving ${filename}`).start();
@@ -63,27 +63,27 @@ export default function start(program) {
 
 		watch(
 			componentsDir,
-			{ encoding: "utf8", recursive: true },
+			{ encoding: 'utf8', recursive: true },
 			async (eventType, filenameRaw) => {
 				const filename = path.relative(componentsDir, filenameRaw);
 				const loader = ora(`Saving ${filename}`).start();
 
 				try {
-					if (filename.includes(".json")) {
+					if (filename.includes('.json')) {
 						await updateComponentConfig(
 							{
 								filename,
 								file: fs.readFileSync(
 									path.join(
 										componentsDir,
-										filename.replace(".json", ".js")
+										filename.replace('.json', '.js')
 									),
-									"utf8"
+									'utf8'
 								),
 								config: JSON.parse(
 									fs.readFileSync(
 										path.join(componentsDir, filename),
-										"utf8"
+										'utf8'
 									)
 								),
 							},
@@ -95,15 +95,15 @@ export default function start(program) {
 								filename,
 								file: fs.readFileSync(
 									path.join(componentsDir, filename),
-									"utf8"
+									'utf8'
 								),
 								config: JSON.parse(
 									fs.readFileSync(
 										path.join(
 											componentsDir,
-											filename.replace(".js", ".json")
+											filename.replace('.js', '.json')
 										),
-										"utf8"
+										'utf8'
 									)
 								),
 							},
