@@ -10,6 +10,9 @@
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
+	"engines": {
+		"node": ">=14"
+	},
 	"author": "Raisely",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"dependencies": {
