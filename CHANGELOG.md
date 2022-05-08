@@ -1,7 +1,7 @@
 
 # 1.6.5
 
-- Fixed win32 filesystem handling is posix environment
+- Fixed win32 filesystem handling
 - Fixed performance issue with Babel loading in before component deploy (causing long pauses)
 - Some minor dead code removal
 - Fixed api layer to use correct error handling (based on response headers), instead of relying on original payload
