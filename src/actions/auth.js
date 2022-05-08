@@ -1,11 +1,11 @@
-import jwtDecode from "jwt-decode";
-import inquirer from "inquirer";
-import ora from "ora";
+import jwtDecode from 'jwt-decode';
+import inquirer from 'inquirer';
+import ora from 'ora';
 
-import api from "./api.js";
-import { error, log } from "../helpers.js";
-import { doLogin } from "../login.js";
-import { updateConfig } from "../config.js";
+import api from './api.js';
+import { error, log } from '../helpers.js';
+import { doLogin } from '../login.js';
+import { updateConfig } from '../config.js';
 
 let token = null;
 let tokenExpiresAt = null;
@@ -37,7 +37,7 @@ function setTokenExpiresAt() {
 			const decoded = jwtDecode(token);
 			tokenExpiresAt = new Date(decoded.exp * 1000);
 		} catch (e) {
-			console.warn("Could not decode token, is it a JWT?");
+			console.warn('Could not decode token, is it a JWT?');
 		}
 	}
 }
@@ -45,7 +45,7 @@ function setTokenExpiresAt() {
 async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 	let organisationUuid = orgUuid;
 	if (!organisationUuid) {
-		const permChecker = ora("Checking campaign permissions...").start();
+		const permChecker = ora('Checking campaign permissions...').start();
 		try {
 			const campaignUuid = opts.campaigns[0];
 			const campaign = await api({
@@ -58,7 +58,7 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 		} catch (e) {
 			error(e, permChecker);
 			console.error(
-				"Could not retrieve the campaign. Are you switched into the correct organisation?"
+				'Could not retrieve the campaign. Are you switched into the correct organisation?'
 			);
 
 			// A bit hacky, but saves a lot of conditional code all over or
@@ -69,28 +69,28 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 
 	if (organisationUuid) {
 		const authData = await api({
-			path: "/authenticate",
+			path: '/authenticate',
 		});
 		if (authData.organisationUuid !== organisationUuid) {
 			log(
 				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${authData.organisationUuid}`,
-				"white"
+				'white'
 			);
 			const response = await inquirer.prompt([
 				{
-					type: "confirm",
-					name: "confirm",
+					type: 'confirm',
+					name: 'confirm',
 					message: `Would you like to switch your account to ${organisationUuid} now?`,
 				},
 			]);
 			if (response.confirm) {
 				const loader = ora(
-					"Switching to correct organisation ..."
+					'Switching to correct organisation ...'
 				).start();
 				try {
 					await api({
 						path: `/users/${authData.userUuid}/move`,
-						method: "PUT",
+						method: 'PUT',
 						json: {
 							data: {
 								organisationUuid,
@@ -109,8 +109,8 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 
 export async function login(body, opts = {}) {
 	return await api({
-		path: "/login",
-		method: "POST",
+		path: '/login',
+		method: 'POST',
 		json: body,
 	});
 }
@@ -126,8 +126,7 @@ export async function getToken(program, opts, warnEarly) {
 	}
 	if (isTokenExpired(warnEarly)) {
 		({ token } = await doLogin(
-			program,
-			"Your token has expired, please login again"
+			'Your token has expired, please login again'
 		));
 		setTokenExpiresAt();
 		await updateConfig({ token });

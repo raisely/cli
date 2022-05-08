@@ -1,24 +1,23 @@
-import chalk from "chalk";
-import _ from "lodash";
-import fetch from "node-fetch";
-import fs from "fs";
-import path from "path";
-import inquirer from "inquirer";
+import chalk from 'chalk';
+import _ from 'lodash';
+import fetch from 'node-fetch';
+import fs from 'fs';
+import inquirer from 'inquirer';
 
-import api from "./actions/api.js";
+import api from './actions/api.js';
 
 let updatePromise;
 let latestVersion;
 
 export function getPackageInfo() {
-	if (!fs.existsSync(new URL("../package.json", import.meta.url), "utf8")) {
+	if (!fs.existsSync(new URL('../package.json', import.meta.url), 'utf8')) {
 		return {
-			name: "@raisely/cli",
+			name: '@raisely/cli',
 			version: null,
 		};
 	}
 	const pkg = JSON.parse(
-		fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")
+		fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')
 	);
 	return {
 		name: pkg.name,
@@ -42,11 +41,11 @@ function checkUpdate() {
 }
 
 export function log(message, color) {
-	console.log(chalk[color || "white"](message));
+	console.log(chalk[color || 'white'](message));
 }
 
 export function br() {
-	return console.log("");
+	return console.log('');
 }
 
 export function welcome() {
@@ -58,7 +57,7 @@ export function welcome() {
 Raisely CLI (${pkg.version})
 ******************************
         `,
-		"magenta"
+		'magenta'
 	);
 }
 
@@ -75,7 +74,7 @@ To update, run:
 		npm update @raisely/cli
 `,
 
-				"white"
+				'white'
 			);
 		}
 	}
@@ -83,7 +82,7 @@ To update, run:
 
 export async function informLocalDev(config) {
 	const authData = await api({
-		path: "/authenticate",
+		path: '/authenticate',
 	});
 	const organisation = authData.data.organisation;
 	if (!organisation.private || !organisation.private.localDevelopment) {
@@ -93,26 +92,26 @@ export async function informLocalDev(config) {
 
 	log(
 		`This Raisely account is set up to require local development, which usually means that you are required to use version control.`,
-		"white"
+		'white'
 	);
 	br();
 	log(
 		`If you continue, your changes may be overwritten by a future deployment.`,
-		"white"
+		'white'
 	);
 	br();
 	// collect login details
 	const response = await inquirer.prompt([
 		{
-			type: "confirm",
-			name: "confirm",
-			message: "Are you sure you want to continue?",
+			type: 'confirm',
+			name: 'confirm',
+			message: 'Are you sure you want to continue?',
 		},
 	]);
 
 	if (!response.confirm) {
 		br();
-		log("Command aborted", "red");
+		log('Command aborted', 'red');
 		return false;
 	}
 
@@ -121,10 +120,10 @@ export async function informLocalDev(config) {
 
 export function error(e, loader) {
 	const message =
-		_.get(e, "response.body.errors[0].message") || e.message || e;
+		_.get(e, 'response.body.errors[0].message') || e.message || e;
 	if (loader) {
 		loader.fail(message);
 	} else {
-		console.log(`${chalk.bgRed("Error:")} ${chalk.red(message)}`);
+		console.log(`${chalk.bgRed('Error:')} ${chalk.red(message)}`);
 	}
 }

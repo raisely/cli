@@ -1,7 +1,7 @@
-import api from "./api.js";
+import api from './api.js';
 
-import path from "path";
-import fs from "fs";
+import path from 'path';
+import fs from 'fs';
 
 let BabelAlreadyLoaded = false;
 
@@ -11,12 +11,12 @@ async function loadBabelCore() {
 		{ default: Babel },
 		{ default: presetEnv },
 		{ default: presetReact },
-		{ default: classProps }
+		{ default: classProps },
 	] = await Promise.all([
-		import("@babel/core"),
-		import("@babel/preset-env"),
-		import("@babel/preset-react"),
-		import("@babel/plugin-proposal-class-properties")
+		import('@babel/core'),
+		import('@babel/preset-env'),
+		import('@babel/preset-react'),
+		import('@babel/plugin-proposal-class-properties'),
 	]);
 
 	if (!BabelAlreadyLoaded) {
@@ -24,7 +24,7 @@ async function loadBabelCore() {
 		Babel.createConfigItem(presetReact);
 		Babel.createConfigItem(classProps);
 		// flag as initialized
-		BabelAlreadyLoaded = true
+		BabelAlreadyLoaded = true;
 	}
 
 	return { Babel, presetEnv, presetReact, classProps };
@@ -34,7 +34,7 @@ async function getComponent(uuid, opts = {}) {
 	return await api({
 		path: `/components/${uuid}`,
 		qs: { private: 1 },
-		method: "GET",
+		method: 'GET',
 		auth: {
 			bearer: opts.token,
 		},
@@ -44,12 +44,12 @@ async function getComponent(uuid, opts = {}) {
 export async function createComponent({ name, apiUrl }, opts = {}) {
 	// fetch the organisation ID
 	const user = await api({
-		path: "/users/me",
+		path: '/users/me',
 	});
 
 	return await api({
 		path: `/components?private=1`,
-		method: "POST",
+		method: 'POST',
 		json: {
 			data: {
 				name,
@@ -63,7 +63,7 @@ export async function updateComponentConfig({ file, config }, opts = {}) {
 	const component = await getComponent(config.uuid, opts);
 	return await api({
 		path: `/components/${config.uuid}?private=1`,
-		method: "PATCH",
+		method: 'PATCH',
 		json: {
 			data: {
 				latestSchema: {
@@ -83,7 +83,7 @@ export async function updateComponentFile({ file, config }, opts = {}) {
 	const component = await getComponent(config.uuid, opts);
 	return await api({
 		path: `/components/${config.uuid}?private=1`,
-		method: "PATCH",
+		method: 'PATCH',
 		json: {
 			data: {
 				latestHtml: file,
@@ -130,40 +130,35 @@ function toRawJavaScript(component, ensureRuntimeSafety = true) {
 }
 
 export async function compileComponents() {
-	const {
-		Babel,
-		presetEnv,
-		presetReact,
-		classProps
-	} = await loadBabelCore();
+	const { Babel, presetEnv, presetReact, classProps } = await loadBabelCore();
 
 	let output = `if (!window.RaiselyPrivateComponents) window.RaiselyPrivateComponents = [];`;
-	const componentsDir = path.join(process.cwd(), "components");
+	const componentsDir = path.join(process.cwd(), 'components');
 	const components = [];
 	for (const file of fs.readdirSync(componentsDir)) {
 		const component = {
 			name: file,
 			latestHtml: fs.readFileSync(
 				path.join(componentsDir, file, `${file}.js`),
-				"utf8"
+				'utf8'
 			),
 			latestSchema: JSON.parse(
 				fs.readFileSync(
 					path.join(componentsDir, file, `${file}.json`),
-					"utf8"
+					'utf8'
 				)
 			),
 		};
 		components.push(
 			[
-				"",
+				'',
 				`/** RaiselyComponent [${component.name}] **/`,
 				toRawJavaScript(component),
-				"",
-			].join("\n")
+				'',
+			].join('\n')
 		);
 	}
-	let converted = await Babel.transformAsync(components.join("\n"), {
+	let converted = await Babel.transformAsync(components.join('\n'), {
 		presets: [presetEnv, presetReact],
 		plugins: [classProps],
 	});

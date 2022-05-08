@@ -1,6 +1,6 @@
 {
 	"name": "@raisely/cli",
-	"version": "1.6.5",
+	"version": "1.7.0",
 	"description": "Raisely CLI for local development",
 	"main": "./src/cli.js",
 	"type": "module",
@@ -10,6 +10,9 @@
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
+	"engines": {
+		"node": ">=14"
+	},
 	"author": "Raisely",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"dependencies": {
@@ -18,13 +21,11 @@
 		"@babel/preset-env": "^7.16.11",
 		"@babel/preset-react": "^7.16.7",
 		"chalk": "^2.4.2",
-		"commander": "^2.20.0",
-		"esm": "^3.2.25",
+		"commander": "^9.2.0",
 		"express": "^4.17.3",
 		"folder-hash": "^4.0.2",
 		"glob": "^7.1.6",
 		"glob-promise": "^3.4.0",
-		"global": "^4.4.0",
 		"http-proxy-middleware": "^2.0.4",
 		"inquirer": "^6.3.1",
 		"jwt-decode": "^3.0.0-beta.2",
@@ -35,7 +36,9 @@
 		"open": "^8.4.0",
 		"ora": "^3.4.0"
 	},
-	"devDependencies": {},
+	"devDependencies": {
+		"prettier": "^2.6.2"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/raisely/cli.git"
@@ -47,5 +50,14 @@
 	"bugs": {
 		"url": "https://github.com/raisely/cli/issues"
 	},
-	"homepage": "https://github.com/raisely/cli#readme"
+	"homepage": "https://github.com/raisely/cli#readme",
+	"prettier": {
+		"trailingComma": "es5",
+		"singleQuote": true,
+		"useTabs": true,
+		"tabWidth": 4,
+		"arrowParens": "always",
+		"quoteProps": "consistent",
+		"bracketSpacing": true
+	}
 }

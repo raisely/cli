@@ -1,20 +1,20 @@
-import ora from "ora";
-import path from "path";
-import fs from "fs";
+import ora from 'ora';
+import path from 'path';
+import fs from 'fs';
 
-import api from "./api.js";
-import { error } from "../helpers.js";
-import { loadConfig } from "../config.js";
+import api from './api.js';
+import { error } from '../helpers.js';
+import { loadConfig } from '../config.js';
 
 export async function syncStyles() {
 	const config = await loadConfig();
 
-	const directory = path.join(process.cwd(), "stylesheets");
+	const directory = path.join(process.cwd(), 'stylesheets');
 	if (!fs.existsSync(directory)) {
 		fs.mkdirSync(directory);
 	}
 
-	const loader = ora("Downloading campaign stylesheets...").start();
+	const loader = ora('Downloading campaign stylesheets...').start();
 	try {
 		for (const uuid of config.campaigns) {
 			const campaign = await api({
@@ -34,12 +34,12 @@ export async function syncStyles() {
 					campaign.data.config.css.files
 				)) {
 					const fileFolder = file
-						.split("/")
-						.filter((f) => !f.includes("."));
+						.split('/')
+						.filter((f) => !f.includes('.'));
 					const fileName = file
-						.split("/")
-						.filter((f) => f.includes("."))
-						.join("");
+						.split('/')
+						.filter((f) => f.includes('.'))
+						.join('');
 					const fileDir = path.join(campaignDir, ...fileFolder);
 
 					if (!fs.existsSync(fileDir)) {
@@ -62,13 +62,13 @@ export async function syncStyles() {
 }
 
 export async function syncComponents(filter) {
-	const directory = path.join(process.cwd(), "components");
+	const directory = path.join(process.cwd(), 'components');
 	if (!fs.existsSync(directory)) {
 		fs.mkdirSync(directory);
 	}
 
 	const loader = ora(
-		filter ? `Downloading ${filter}...` : "Downloading custom components..."
+		filter ? `Downloading ${filter}...` : 'Downloading custom components...'
 	).start();
 	try {
 		const components = await api({
