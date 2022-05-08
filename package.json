@@ -35,7 +35,9 @@
 		"open": "^8.4.0",
 		"ora": "^3.4.0"
 	},
-	"devDependencies": {},
+	"devDependencies": {
+		"prettier": "^2.6.2"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/raisely/cli.git"
@@ -47,5 +49,13 @@
 	"bugs": {
 		"url": "https://github.com/raisely/cli/issues"
 	},
-	"homepage": "https://github.com/raisely/cli#readme"
+	"homepage": "https://github.com/raisely/cli#readme",
+	"prettier": {
+		"trailingComma": "es5",
+		"singleQuote": true,
+		"useTabs": true,
+		"tabWidth": 4,
+		"arrowParens": "always",
+		"quoteProps": "consistent"
+	}
 }
