@@ -1,4 +1,4 @@
-import program from 'commander';
+import { program } from 'commander';
 import { getPackageInfo } from './helpers.js';
 
 /**
@@ -27,25 +27,54 @@ export async function cli() {
 	const pkg = getPackageInfo();
 	program.version(pkg.version);
 
-	program.command('init').action(init);
+	program
+		.command('init')
+		.description('Initialize a remote Raisely campaign to this machine')
+		.action(init);
 
-	program.command('update').action(update);
+	program
+		.command('update')
+		.description(
+			'Synchronise (pull) a remote Raisely campaign with the files on this machine'
+		)
+		.action(update);
 
-	program.command('start').action(start);
+	program
+		.command('deploy')
+		.description(
+			'Synchronise (push) a remote Raisely campaign with the files on this machine'
+		)
+		.action(deploy);
+
+	program
+		.command('start')
+		.description(
+			'Start a watcher instance. Updates configured Raisely campaigns when component or style changes are made locally'
+		)
+		.action(start);
 
 	program
 		.command('create [name]')
-		.description('create a new custom component')
+		.description('Create a new custom component')
 		.action(create);
 
-	program.command('deploy').action(deploy);
-
-	program.command('login').action(login);
+	program
+		.command('login')
+		.description('Authenticate with the Raisely api')
+		.action(login);
 
 	program
 		.command('local')
 		.description('Start local development server for a single campaign.')
 		.action(local);
 
+	// Make sure we show help after a bad command
+	program.showHelpAfterError();
+
 	program.parse(process.argv);
+
+	// Show help if no values passed
+	if (program.args.length === 0) {
+		program.help();
+	}
 }

@@ -1,4 +1,4 @@
-import program from 'commander';
+import { program } from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
 import { login } from './actions/auth.js';

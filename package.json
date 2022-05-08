@@ -18,7 +18,7 @@
 		"@babel/preset-env": "^7.16.11",
 		"@babel/preset-react": "^7.16.7",
 		"chalk": "^2.4.2",
-		"commander": "^2.20.0",
+		"commander": "^9.2.0",
 		"express": "^4.17.3",
 		"folder-hash": "^4.0.2",
 		"glob": "^7.1.6",
