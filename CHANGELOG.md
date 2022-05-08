@@ -1,4 +1,11 @@
 
+# 1.7.0
+- Now requires node v14+ LTS (esm no longer required)
+- Added better command-line experience (more logs)
+- Updated commander.js
+- Implemented dynamic imports for commands (faster, only load modules when needed for each command)
+- Applied code formatting to match internal development standards
+
 # 1.6.5
 
 - Fixed win32 filesystem handling
