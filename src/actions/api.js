@@ -55,7 +55,7 @@ export default async function api(options) {
 			const parseFormat = responseIsJSON ? 'json' : 'text';
 			const formatted = await response[parseFormat]();
 
-			if (response.status > 399) {
+			if (response.status >= 500) {
 				const formattedError = `${fetchUrl} (${
 					response.status
 				}) failed with message: ${
