@@ -1,7 +1,7 @@
 import { program } from 'commander';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import ora, { promise } from 'ora';
+import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
 import pLimit from 'p-limit';
@@ -14,7 +14,6 @@ import {
 } from './actions/components.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
-import { tsRestType } from '@babel/types';
 
 export default async function deploy() {
 	// load config
