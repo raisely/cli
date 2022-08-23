@@ -95,15 +95,19 @@ export default async function deploy() {
 
 	// Start loading all the components
 	const loader = ora(`Uploading components`).start();
+
 	try {
 		await Promise.all(components);
 		loader.succeed();
 		await informUpdate();
 		br();
-		log(`All done!`);
+		log(`All done!`, 'green');
 	} catch (e) {
-		console.error('');
-		console.error('There was a problem while uploading components:');
+		br();
+		log(
+			`Retries exceeded. The following error occured uploading components`,
+			'red'
+		);
 		console.error(e);
 		loader.fail();
 	}

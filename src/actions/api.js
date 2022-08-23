@@ -12,61 +12,69 @@ function getResponseContentType(response) {
 	return contentType;
 }
 
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default async function api(options) {
 	const config = await loadConfig({ allowEmpty: true });
 	const isJson =
 		!options.path.includes('.js') && !options.path.includes('.css');
 
 	const fetchUrl = `${config.apiUrl}/v3${options.path}`;
-	const status = { attempts: 0, success: false, error: null };
+	const retryConfig = { retry: 3, pause: 5000 };
 
-	while (!status.success && status.attempts < 3) {
-		const response = await fetch(
-			fetchUrl,
-			Object.assign(options, {
-				headers: {
-					...(isJson
-						? {
-								'Content-Type': 'application/json',
-						  }
-						: {}),
-					...(config.token
-						? { Authorization: `Bearer ${config.token}` }
-						: {}),
-					...options.headers,
-					'x-raisely-cli': true,
-				},
-				body:
-					options.method !== 'GET' && options.json
-						? JSON.stringify(options.json)
-						: undefined,
-				agent: config.apiUrl ? devHttpsAgent : undefined,
-			})
-		);
+	while (retryConfig.retry > 0) {
+		try {
+			const response = await fetch(
+				fetchUrl,
+				Object.assign(options, {
+					headers: {
+						...(isJson
+							? {
+									'Content-Type': 'application/json',
+							  }
+							: {}),
+						...(config.token
+							? { Authorization: `Bearer ${config.token}` }
+							: {}),
+						...options.headers,
+						'x-raisely-cli': true,
+					},
+					body:
+						options.method !== 'GET' && options.json
+							? JSON.stringify(options.json)
+							: undefined,
+					agent: config.apiUrl ? devHttpsAgent : undefined,
+				})
+			);
 
-		// Use the actual response type header, don't just guess
-		const contentType = getResponseContentType(response);
-		const responseIsJSON = contentType === 'application/json';
+			const contentType = getResponseContentType(response);
+			const responseIsJSON = contentType === 'application/json';
 
-		const parseFormat = responseIsJSON ? 'json' : 'text';
-		const formatted = await response[parseFormat]();
+			const parseFormat = responseIsJSON ? 'json' : 'text';
+			const formatted = await response[parseFormat]();
 
-		if (response.status > 399) {
-			const formattedError = `${fetchUrl} (${
-				response.status
-			}) failed with message: ${
-				(responseIsJSON && formatted.detail) || response.statusText
-			}`;
+			if (response.status > 399) {
+				const formattedError = `${fetchUrl} (${
+					response.status
+				}) failed with message: ${
+					(responseIsJSON && formatted.detail) || response.statusText
+				}`;
 
-			status.attempts++;
-			status.error = formattedError;
-		} else {
-			status.success = true;
+				throw new Error(formattedError);
+			}
 			return formatted;
-		}
-		// After 3 attempts, throw error
-		if (!status.success && status.attempts >= 3) {
-			throw new Error(status.error);
+		} catch (e) {
+			retryConfig.retry--;
+			if (retryConfig.retry === 0) {
+				throw e;
+			}
+
+			console.error('');
+			console.error(`An error occured, retrying... `);
+			console.error(`${e.message}`);
+			await sleep(retryConfig.pause);
 		}
 	}
 }
