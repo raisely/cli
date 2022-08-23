@@ -55,20 +55,30 @@ export default async function api(options) {
 			const parseFormat = responseIsJSON ? 'json' : 'text';
 			const formatted = await response[parseFormat]();
 
-			if (response.status >= 500) {
-				const formattedError = `${fetchUrl} (${
-					response.status
-				}) failed with message: ${
-					(responseIsJSON && formatted.detail) || response.statusText
-				}`;
+			if (response.status >= 399) {
+				const error = {
+					message: `${fetchUrl} (${
+						response.status
+					}) failed with message: ${
+						(responseIsJSON && formatted.detail) ||
+						response.statusText
+					}`,
+					status: response.status,
+				};
 
-				throw new Error(formattedError);
+				throw error;
 			}
 			return formatted;
 		} catch (e) {
 			retryConfig.retry--;
+			// Skip hard failures, except a timeout
+			if (e.status <= 500 && e.status !== 408) {
+				throw e.message;
+			}
+
+			// Retries exceeeded
 			if (retryConfig.retry === 0) {
-				throw e;
+				throw e.message;
 			}
 
 			console.error('');
