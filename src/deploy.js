@@ -102,7 +102,7 @@ export default async function deploy() {
 		.map((result) => result.reason);
 
 	if (rejected.length > 0) {
-		loader.warn('The follow errors occured while uploading components:');
+		loader.warn('The following errors occured while uploading components:');
 		rejected.forEach((error) => {
 			log(error, 'red');
 		});
