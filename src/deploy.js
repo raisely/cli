@@ -1,9 +1,10 @@
 import { program } from 'commander';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import ora from 'ora';
+import ora, { promise } from 'ora';
 import fs from 'fs';
 import path from 'path';
+import pLimit from 'p-limit';
 
 import { welcome, log, br, informUpdate } from './helpers.js';
 import { uploadStyles, getCampaign } from './actions/campaigns.js';
@@ -13,6 +14,7 @@ import {
 } from './actions/components.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
+import { tsRestType } from '@babel/types';
 
 export default async function deploy() {
 	// load config
@@ -70,9 +72,11 @@ export default async function deploy() {
 	}
 
 	// upload custom components
+	const limit = pLimit(5);
+	const components = [];
+
 	const componentsDir = path.join(process.cwd(), 'components');
 	for (const file of fs.readdirSync(componentsDir)) {
-		const loader = ora(`Uploading component ${file}`).start();
 		const data = {
 			file: fs.readFileSync(
 				path.join(componentsDir, file, `${file}.js`),
@@ -86,12 +90,22 @@ export default async function deploy() {
 			),
 		};
 
-		await updateComponentConfig(data);
-		await updateComponentFile(data);
-		loader.succeed();
-		await informUpdate();
+		components.push(limit(() => updateComponentConfig(data)));
+		components.push(limit(() => updateComponentFile(data)));
 	}
 
-	br();
-	log(`All done!`);
+	// Start loading all the components
+	const loader = ora(`Uploading components`).start();
+	try {
+		await Promise.all(components);
+		loader.succeed();
+		await informUpdate();
+		br();
+		log(`All done!`);
+	} catch (e) {
+		console.error('');
+		console.error('There was a problem while uploading components:');
+		console.error(e);
+		loader.fail();
+	}
 }

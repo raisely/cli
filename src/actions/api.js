@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import https from 'https';
 import { loadConfig, defaults } from '../config.js';
+import { stat } from 'fs';
 
 const devHttpsAgent = new https.Agent({
 	rejectUnauthorized: false,
@@ -18,49 +19,55 @@ export default async function api(options) {
 		!options.path.includes('.js') && !options.path.includes('.css');
 
 	const fetchUrl = `${config.apiUrl}/v3${options.path}`;
+	const status = { attempts: 0, success: false, error: null };
 
-	const response = await fetch(
-		fetchUrl,
-		Object.assign(options, {
-			headers: {
-				...(isJson
-					? {
-							'Content-Type': 'application/json',
-					  }
-					: {}),
-				...(config.token
-					? { Authorization: `Bearer ${config.token}` }
-					: {}),
-				...options.headers,
-				'x-raisely-cli': true,
-			},
-			body:
-				options.method !== 'GET' && options.json
-					? JSON.stringify(options.json)
-					: undefined,
-			agent: config.apiUrl ? devHttpsAgent : undefined,
-		})
-	);
+	while (!status.success && status.attempts < 3) {
+		const response = await fetch(
+			fetchUrl,
+			Object.assign(options, {
+				headers: {
+					...(isJson
+						? {
+								'Content-Type': 'application/json',
+						  }
+						: {}),
+					...(config.token
+						? { Authorization: `Bearer ${config.token}` }
+						: {}),
+					...options.headers,
+					'x-raisely-cli': true,
+				},
+				body:
+					options.method !== 'GET' && options.json
+						? JSON.stringify(options.json)
+						: undefined,
+				agent: config.apiUrl ? devHttpsAgent : undefined,
+			})
+		);
 
-	// Use the actual response type header, don't just guess
-	const contentType = getResponseContentType(response);
-	const responseIsJSON = contentType === 'application/json';
+		// Use the actual response type header, don't just guess
+		const contentType = getResponseContentType(response);
+		const responseIsJSON = contentType === 'application/json';
 
-	const parseFormat = responseIsJSON ? 'json' : 'text';
-	const formatted = await response[parseFormat]();
+		const parseFormat = responseIsJSON ? 'json' : 'text';
+		const formatted = await response[parseFormat]();
 
-	if (response.status > 399) {
-		// Add extra line break before throwing error - for better visual grep
-		console.error('');
+		if (response.status > 399) {
+			const formattedError = `${fetchUrl} (${
+				response.status
+			}) failed with message: ${
+				(responseIsJSON && formatted.detail) || response.statusText
+			}`;
 
-		const formattedError = `${fetchUrl} (${
-			response.status
-		}) failed with message: ${
-			(responseIsJSON && formatted.detail) || response.statusText
-		}`;
-
-		throw new Error(formattedError);
+			status.attempts++;
+			status.error = formattedError;
+		} else {
+			status.success = true;
+			return formatted;
+		}
+		// After 3 attempts, throw error
+		if (!status.success && status.attempts >= 3) {
+			throw new Error(status.error);
+		}
 	}
-
-	return formatted;
 }
