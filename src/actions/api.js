@@ -1,7 +1,6 @@
 import fetch from 'node-fetch';
 import https from 'https';
 import { loadConfig, defaults } from '../config.js';
-import { stat } from 'fs';
 
 const devHttpsAgent = new https.Agent({
 	rejectUnauthorized: false,
