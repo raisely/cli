@@ -4,6 +4,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
+import pLimit from 'p-limit';
 
 import { welcome, log, br, informUpdate } from './helpers.js';
 import { uploadStyles, getCampaign } from './actions/campaigns.js';
@@ -70,9 +71,11 @@ export default async function deploy() {
 	}
 
 	// upload custom components
+	const limit = pLimit(5);
+	const components = [];
+
 	const componentsDir = path.join(process.cwd(), 'components');
 	for (const file of fs.readdirSync(componentsDir)) {
-		const loader = ora(`Uploading component ${file}`).start();
 		const data = {
 			file: fs.readFileSync(
 				path.join(componentsDir, file, `${file}.js`),
@@ -86,12 +89,27 @@ export default async function deploy() {
 			),
 		};
 
-		await updateComponentConfig(data);
-		await updateComponentFile(data);
+		components.push(limit(() => updateComponentConfig(data)));
+		components.push(limit(() => updateComponentFile(data)));
+	}
+
+	// Start loading all the components
+	const loader = ora(`Uploading components`).start();
+	const deployResult = await Promise.allSettled(components);
+
+	const rejected = deployResult
+		.filter((result) => result.status === 'rejected')
+		.map((result) => result.reason);
+
+	if (rejected.length > 0) {
+		loader.warn('The following errors occured while uploading components:');
+		rejected.forEach((error) => {
+			log(error, 'red');
+		});
+	} else {
 		loader.succeed();
 		await informUpdate();
 	}
-
 	br();
-	log(`All done!`);
+	log(`All done!`, 'green');
 }
