@@ -63,7 +63,8 @@ export default async function deploy() {
 				`${campaign.data.path}${path.sep}${campaign.data.path}.scss`
 			);
 		} catch (e) {
-			console.error(e.stack);
+			br();
+			console.error(e);
 			process.exit(1);
 		}
 
