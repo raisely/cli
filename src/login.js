@@ -35,10 +35,10 @@ export async function doLogin(message) {
 			...credentials,
 			requestAdminToken: true,
 		});
-		return loginSucceed(loginLoader, loginBody)
+		return loginSucceed(loginLoader, loginBody);
 	} catch (e) {
 		if (requiresMfa(e)) {
-			return await loginWith2FA(loginLoader, credentials)
+			return await loginWith2FA(loginLoader, credentials);
 		} else {
 			error(e, loginLoader);
 			return false;
@@ -68,10 +68,10 @@ async function loginWith2FA(loginLoader, credentials) {
 			otp: response.otp,
 			requestAdminToken: true,
 		});
-		return loginSucceed(loginLoader, loginBody)
+		return loginSucceed(loginLoader, loginBody);
 	} catch (e) {
 		error(e, loginLoader);
-		return false
+		return false;
 	}
 }
 

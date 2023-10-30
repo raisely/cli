@@ -129,5 +129,5 @@ export function error(e, loader) {
 }
 
 export function requiresMfa(e) {
-	return e.subcode && e.subcode.startsWith('MFA required')
+	return e.subcode && e.subcode.startsWith('MFA required');
 }
