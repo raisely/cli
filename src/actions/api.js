@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import https from 'https';
+import _ from 'lodash';
 import { loadConfig, defaults } from '../config.js';
 
 const devHttpsAgent = new https.Agent({
@@ -66,11 +67,25 @@ export default async function api(options) {
 					status: response.status,
 				};
 
+				if (responseIsJSON && formatted) {
+					// if subcode, add this to error
+					const subcode = _.get(formatted, 'errors[0].subcode')
+					if (subcode) {
+						error.subcode = subcode
+					}
+				}
+
 				throw error;
 			}
 			return formatted;
 		} catch (e) {
 			retryConfig.retry--;
+
+			// Handle MFA error
+			if (e.subcode && e.subcode.startsWith('MFA required')) {
+				throw e
+			}
+
 			// Skip hard failures, except a timeout
 			if (e.status <= 500 && e.status !== 408) {
 				throw e.message;
