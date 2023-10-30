@@ -127,3 +127,7 @@ export function error(e, loader) {
 		console.log(`${chalk.bgRed('Error:')} ${chalk.red(message)}`);
 	}
 }
+
+export function requiresMfa(e) {
+	return e.subcode && e.subcode.startsWith('MFA required');
+}
