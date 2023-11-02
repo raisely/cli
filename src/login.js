@@ -4,7 +4,7 @@ import ora from 'ora';
 import { login } from './actions/auth.js';
 
 import { updateConfig } from './config.js';
-import { log, error, informUpdate, requiresMfa } from './helpers.js';
+import { log, error, informUpdate, requiresMfa, getMfaStrategy } from './helpers.js';
 
 export async function doLogin(message) {
 	if (message) log(message, 'white');
@@ -38,7 +38,8 @@ export async function doLogin(message) {
 		return loginSucceed(loginLoader, loginBody);
 	} catch (e) {
 		if (requiresMfa(e)) {
-			return await loginWith2FA(loginLoader, credentials);
+			const mfaType = getMfaStrategy(e)
+			return await loginWith2FA(loginLoader, credentials, mfaType);
 		} else {
 			error(e, loginLoader);
 			return false;
@@ -46,8 +47,8 @@ export async function doLogin(message) {
 	}
 }
 
-async function loginWith2FA(loginLoader, credentials) {
-	loginLoader.info('Your account requires 2 factor authentication.');
+async function loginWith2FA(loginLoader, credentials, mfaType) {
+	loginLoader.info(`Your account requires 2 factor authentication ${mfaType}`);
 	try {
 		const response = await inquirer.prompt([
 			{
@@ -65,6 +66,7 @@ async function loginWith2FA(loginLoader, credentials) {
 
 		const loginBody = await login({
 			...credentials,
+			mfaType,
 			otp: response.otp,
 			requestAdminToken: true,
 		});

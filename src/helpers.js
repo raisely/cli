@@ -131,3 +131,11 @@ export function error(e, loader) {
 export function requiresMfa(e) {
 	return e.subcode && e.subcode.startsWith('MFA required');
 }
+
+export function getMfaStrategy(e) {
+	// Extract if it's authy or authenticator
+	const subcodeArray = e.subcode.split(':');
+	const authType = subcodeArray[1];
+
+	return authType;
+}
