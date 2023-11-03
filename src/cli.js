@@ -21,6 +21,7 @@ const start = actionBuilder(() => import('./start.js'));
 const create = actionBuilder(() => import('./create.js'));
 const deploy = actionBuilder(() => import('./deploy.js'));
 const login = actionBuilder(() => import('./login.js'));
+const logout = actionBuilder(() => import('./logout.js'));
 const local = actionBuilder(() => import('./local.js'));
 
 export async function cli() {
@@ -62,6 +63,11 @@ export async function cli() {
 		.command('login')
 		.description('Authenticate with the Raisely api')
 		.action(login);
+
+	program
+		.command('logout')
+		.description('Logout from the Raisely api')
+		.action(logout);
 
 	program
 		.command('local')
