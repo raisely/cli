@@ -53,6 +53,22 @@ async function loginWith2FA(loginLoader, credentials, mfaStrategy) {
 	if (mfaType === 'AUTHENTICATOR_APP' && mfaStrategy.hasAuthy) {
 		const choiceMfa = await selectMfaType();
 		mfaType = choiceMfa.mfaType;
+		if (mfaType === 'AUTHY') {
+			// trigger login again with mfaType to send the prompt
+			try {
+				await login({
+					...credentials,
+					mfaType,
+					requestAdminToken: true,
+				});
+			} catch (e) {
+				// don't throw error if just an error about missing MFA
+				if (!requiresMfa(e)) {
+					error(e, loginLoader);
+					return false;
+				}
+			}
+		}
 	}
 	try {
 		const response = await inquirer.prompt([
