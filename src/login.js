@@ -38,8 +38,8 @@ export async function doLogin(message) {
 		return loginSucceed(loginLoader, loginBody);
 	} catch (e) {
 		if (requiresMfa(e)) {
-			const mfaType = getMfaStrategy(e)
-			return await loginWith2FA(loginLoader, credentials, mfaType);
+			const mfaStrategy = getMfaStrategy(e)
+			return await loginWith2FA(loginLoader, credentials, mfaStrategy);
 		} else {
 			error(e, loginLoader);
 			return false;
@@ -47,8 +47,13 @@ export async function doLogin(message) {
 	}
 }
 
-async function loginWith2FA(loginLoader, credentials, mfaType) {
-	loginLoader.info(`Your account requires 2 factor authentication ${mfaType}`);
+async function loginWith2FA(loginLoader, credentials, mfaStrategy) {
+	loginLoader.info(`Your account requires 2 factor authentication`);
+	let mfaType = mfaStrategy.mfaType;
+	if (mfaType === 'AUTHENTICATOR_APP' && mfaStrategy.hasAuthy) {
+		const choiceMfa = await selectMfaType();
+		mfaType = choiceMfa.mfaType;
+	}
 	try {
 		const response = await inquirer.prompt([
 			{
@@ -75,6 +80,31 @@ async function loginWith2FA(loginLoader, credentials, mfaType) {
 		error(e, loginLoader);
 		return false;
 	}
+}
+
+async function selectMfaType() {
+	const selectedMfa = await inquirer.prompt([
+		{
+			type: 'list',
+			message: 'Select your preferred MFA',
+			name: 'mfaType',
+			choices:  [
+				{
+					name: 'Authenticator App',
+					value: 'AUTHENTICATOR_APP'
+				},
+				{
+					name: 'SMS/Legacy',
+					value: 'AUTHY'
+				}
+			],
+			validate: (value) =>
+				value.length
+					? true
+					: 'Please choose your preferred MFA',
+		},
+	]);
+	return selectedMfa;
 }
 
 async function loginSucceed(loginLoader, loginBody) {

@@ -137,5 +137,13 @@ export function getMfaStrategy(e) {
 	const subcodeArray = e.subcode.split(':');
 	const authType = subcodeArray[1];
 
-	return authType;
+	return {
+		mfaType: authType,
+		// if authenticator, we need to know whether to offer authy as alternative
+		hasAuthy:  Boolean(
+			authType === 'AUTHY' ||
+				(subcodeArray.length === 3 &&
+					subcodeArray[2] === 'hasAuthy')
+			)
+	}
 }
