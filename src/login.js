@@ -4,7 +4,7 @@ import ora from 'ora';
 import { login } from './actions/auth.js';
 
 import { updateConfig } from './config.js';
-import { log, error, informUpdate, requiresMfa } from './helpers.js';
+import { log, error, informUpdate, requiresMfa, getMfaStrategy } from './helpers.js';
 
 export async function doLogin(message) {
 	if (message) log(message, 'white');
@@ -38,7 +38,8 @@ export async function doLogin(message) {
 		return loginSucceed(loginLoader, loginBody);
 	} catch (e) {
 		if (requiresMfa(e)) {
-			return await loginWith2FA(loginLoader, credentials);
+			const mfaStrategy = getMfaStrategy(e)
+			return await loginWith2FA(loginLoader, credentials, mfaStrategy);
 		} else {
 			error(e, loginLoader);
 			return false;
@@ -46,8 +47,29 @@ export async function doLogin(message) {
 	}
 }
 
-async function loginWith2FA(loginLoader, credentials) {
-	loginLoader.info('Your account requires 2 factor authentication.');
+async function loginWith2FA(loginLoader, credentials, mfaStrategy) {
+	loginLoader.info(`Your account requires 2 factor authentication`);
+	let mfaType = mfaStrategy.mfaType;
+	if (mfaType === 'AUTHENTICATOR_APP' && mfaStrategy.hasAuthy) {
+		const choiceMfa = await selectMfaType();
+		mfaType = choiceMfa.mfaType;
+		if (mfaType === 'AUTHY') {
+			// trigger login again with mfaType to send the prompt
+			try {
+				await login({
+					...credentials,
+					mfaType,
+					requestAdminToken: true,
+				});
+			} catch (e) {
+				// don't throw error if just an error about missing MFA
+				if (!requiresMfa(e)) {
+					error(e, loginLoader);
+					return false;
+				}
+			}
+		}
+	}
 	try {
 		const response = await inquirer.prompt([
 			{
@@ -65,6 +87,7 @@ async function loginWith2FA(loginLoader, credentials) {
 
 		const loginBody = await login({
 			...credentials,
+			mfaType,
 			otp: response.otp,
 			requestAdminToken: true,
 		});
@@ -73,6 +96,31 @@ async function loginWith2FA(loginLoader, credentials) {
 		error(e, loginLoader);
 		return false;
 	}
+}
+
+async function selectMfaType() {
+	const selectedMfa = await inquirer.prompt([
+		{
+			type: 'list',
+			message: 'Select your preferred MFA',
+			name: 'mfaType',
+			choices:  [
+				{
+					name: 'Authenticator App',
+					value: 'AUTHENTICATOR_APP'
+				},
+				{
+					name: 'SMS/Legacy',
+					value: 'AUTHY'
+				}
+			],
+			validate: (value) =>
+				value.length
+					? true
+					: 'Please choose your preferred MFA',
+		},
+	]);
+	return selectedMfa;
 }
 
 async function loginSucceed(loginLoader, loginBody) {

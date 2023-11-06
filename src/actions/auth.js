@@ -115,6 +115,13 @@ export async function login(body, opts = {}) {
 	});
 }
 
+export async function logout() {
+	return await api({
+		path: '/logout',
+		method: 'POST',
+	});
+}
+
 export async function getToken(program, opts, warnEarly) {
 	if (opts.$tokenFromEnv) return;
 	let isNewToken = false;

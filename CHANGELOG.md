@@ -1,4 +1,10 @@
 
+# 1.8.2
+- Updates CLI to support Raisely's expanded MFA options
+
+# 1.8.1
+- Fixes bug with logging in using MFA
+
 # 1.7.0
 - Now requires node v14+ LTS (esm no longer required)
 - Added better command-line experience (more logs)
