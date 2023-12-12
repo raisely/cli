@@ -1,6 +1,6 @@
 # Raisely CLI
 
-![Raisely logo](https://raisely-images.imgix.net/www/uploads/lockup-default-svg-d0b31f.svg?fit=max&w=1000&auto=format&q=62)
+![Raisely logo](https://raisely-images.imgix.net/www/uploads/lockup-default-svg-d0b31f.svg?fit=max&w=300&auto=format&q=62)
 
 The Raisely CLI is used to power local development of Raisely themes, syncing custom components and campaign styles to your local machine.
 
