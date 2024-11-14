@@ -7,6 +7,7 @@ import express from 'express';
 import open from 'open';
 import sass from 'node-sass';
 import { hashElement } from 'folder-hash';
+import * as fzstd from 'fzstd';
 
 import {
 	createProxyMiddleware,
@@ -141,14 +142,21 @@ export default async function start() {
 				async (responseBuffer, proxyRes, req, res) => {
 					// convert zstd compressed buffer to string
 					const response = await new Promise((resolve, reject) => {
+						// trans
 						const decompressedChunks = [];
-						const decompressStream = ZSTDDecompress();
-
-						decompressStream.on('data', (chunk) => decompressedChunks.push(chunk));
-						decompressStream.on('end', () => resolve(Buffer.concat(decompressedChunks).toString('utf8')));
-						decompressStream.on('error', reject);
-
-						decompressStream.end(responseBuffer);
+						const decompressStream = new fzstd.Decompress((chunk, isLast) => {
+							// Add to list of decompressed chunks
+							decompressedChunks.push(chunk);
+							if (isLast) {
+								resolve(Buffer.concat(decompressedChunks).toString('utf8'));
+							}
+						});
+						try {
+							decompressStream.push(responseBuffer);
+							decompressStream.push(new Uint8Array(0), true); // Need to tell the stream that it's ended
+						} catch (error) {
+							reject(error)
+						}
 					});
 					return response
 						.replace(

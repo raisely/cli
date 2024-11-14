@@ -24,6 +24,7 @@
 		"commander": "^9.2.0",
 		"express": "^4.17.3",
 		"folder-hash": "^4.0.2",
+		"fzstd": "^0.1.1",
 		"glob": "^7.1.6",
 		"glob-promise": "^3.4.0",
 		"http-proxy-middleware": "^2.0.4",
@@ -35,8 +36,7 @@
 		"node-watch": "^0.7.1",
 		"open": "^8.4.0",
 		"ora": "^3.4.0",
-		"p-limit": "^4.0.0",
-		"simple-zstd": "^1.4.2"
+		"p-limit": "^4.0.0"
 	},
 	"devDependencies": {
 		"prettier": "^2.6.2"
