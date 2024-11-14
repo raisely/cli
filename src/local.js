@@ -135,11 +135,21 @@ export default async function start() {
 			secure: !config.proxyUrl,
 			autoRewrite: true,
 			cookieDomainRewrite: true,
-			followRedirects: false,
+			followRedirects: true,
 			selfHandleResponse: true,
 			onProxyRes: responseInterceptor(
 				async (responseBuffer, proxyRes, req, res) => {
-					const response = responseBuffer.toString('utf8'); // convert buffer to string
+					// convert zstd compressed buffer to string
+					const response = await new Promise((resolve, reject) => {
+						const decompressedChunks = [];
+						const decompressStream = ZSTDDecompress();
+
+						decompressStream.on('data', (chunk) => decompressedChunks.push(chunk));
+						decompressStream.on('end', () => resolve(Buffer.concat(decompressedChunks).toString('utf8')));
+						decompressStream.on('error', reject);
+
+						decompressStream.end(responseBuffer);
+					});
 					return response
 						.replace(
 							`${
