@@ -1,6 +1,6 @@
 {
 	"name": "@raisely/cli",
-	"version": "1.8.2",
+	"version": "1.8.3",
 	"description": "Raisely CLI for local development",
 	"main": "./src/cli.js",
 	"type": "module",
@@ -24,6 +24,7 @@
 		"commander": "^9.2.0",
 		"express": "^4.17.3",
 		"folder-hash": "^4.0.2",
+		"fzstd": "^0.1.1",
 		"glob": "^7.1.6",
 		"glob-promise": "^3.4.0",
 		"http-proxy-middleware": "^2.0.4",

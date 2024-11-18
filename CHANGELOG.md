@@ -1,4 +1,7 @@
 
+# 1.8.3
+- Fix redirects for `raisely local`
+
 # 1.8.2
 - Updates CLI to support Raisely's expanded MFA options
 
