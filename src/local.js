@@ -76,7 +76,7 @@ export default async function start() {
 	// determine proxy target
 	const target = config.proxyUrl
 		? config.proxyUrl.replace('https://', `https://${campaign.path}.`)
-		: `https://${campaign.path}.raisely.com`;
+		: `https://${campaign.path}.raiselysite.com`;
 
 	const app = express();
 
