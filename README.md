@@ -2,13 +2,13 @@
 
 ![Raisely logo](https://raisely-images.imgix.net/www/uploads/lockup-default-svg-d0b31f.svg?fit=max&w=300&auto=format&q=62)
 
-The Raisely CLI is used to power local development of Raisely themes, syncing custom components and campaign styles to your local machine.
+The Raisely CLI is used to power local development of Raisely themes, syncing custom components, campaign styles, and campaign pages to your local machine.
 
 For more about Raisely, see <https://raisely.com>
 
 ## Overview
 
-The Raisely CLI allows for fast and easy development on the Raisely platform. The CLI allows you to connect a directory on your local computer to a Raisely account. With the CLI you can update campaign stylesheets, and edit and create custom React components.
+The Raisely CLI allows for fast and easy development on the Raisely platform. The CLI allows you to connect a directory on your local computer to a Raisely account. With the CLI you can update campaign stylesheets, edit and create custom React components, and edit page layout JSON under `pages/`.
 
 The CLI is built on Node.js, so you'll need Node.js installed to use it.
 
@@ -27,12 +27,24 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 
 ## Commands
 
-- `raisely init` - start a new Raisely project, authenticate and sync your campaigns
-- `raisely update` - update local copies of styles and components from the API
-- `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
-- `raisely start` - starts watching for and uploading changes to styles and components
-- `raisely deploy` - deploy your local code to Raisely
-- `raisely local` - work locally on a Raisely campaign without syncing changes up
+-   `raisely init` - start a new Raisely project, authenticate and sync your campaigns
+-   `raisely update` - update local copies of styles, components, and pages from the API
+-   `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
+-   `raisely start` - starts watching for and uploading changes to styles and components
+-   `raisely deploy` - deploy your local code to Raisely (styles, components, and pages)
+-   `raisely local` - work locally on a Raisely campaign without syncing changes up (includes local page JSON overrides when `pages/` is present)
+
+### Custom public host (`raisely local`)
+
+By default, `raisely local` proxies to `https://{campaign.path}.raisely.com`. If the site people visit is on another host (for example `https://{campaign.path}.raiselysite.com`), add **`proxyUrl`** to `.raisely.json` with the bare domain (no campaign subdomain):
+
+```json
+{
+	"proxyUrl": "https://raiselysite.com"
+}
+```
+
+The CLI turns that into `https://{campaign.path}.raiselysite.com` so the proxy matches production.
 
 ## CI/CD Usage
 
@@ -40,12 +52,12 @@ Raisely CLI supports usage in a CI/CD environment for auto-deployment of styles 
 
 Raisely CLI supports the following environment variables:
 
-- `RAISELY_TOKEN` – your API secret key
-- `RAISELY_CAMPAIGNS` - a comma-separated list of campaign uuids to sync (so you can be selective)
+-   `RAISELY_TOKEN` – your API secret key
+-   `RAISELY_CAMPAIGNS` - a comma-separated list of campaign uuids to sync (so you can be selective)
 
 _Note: All components are always synced, when they're present in the directory your syncing_
 
-With these environment variables set, run: `raisely deploy`. This will sync your local directory to the remote Raisely account, overwriting the styles and components on the destination campaign.
+With these environment variables set, run: `raisely deploy`. This will sync your local directory to the remote Raisely account, overwriting the styles, components, and pages on the destination campaign.
 
 ## Developing
 

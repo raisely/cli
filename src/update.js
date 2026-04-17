@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 
 import { welcome, log, br, error, informUpdate } from './helpers.js';
-import { syncStyles, syncComponents } from './actions/sync.js';
+import { syncStyles, syncComponents, syncPages } from './actions/sync.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
 
@@ -18,7 +18,7 @@ export default async function update() {
 
 	welcome();
 	log(
-		`You are about to update the styles and components in this directory`,
+		`You are about to update the styles, components, and pages in this directory`,
 		'white'
 	);
 	br();
@@ -51,6 +51,9 @@ export default async function update() {
 
 	// sync down custom components
 	await syncComponents();
+
+	// sync down campaign pages
+	await syncPages();
 
 	br();
 	log(

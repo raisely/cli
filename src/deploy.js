@@ -5,6 +5,7 @@ import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
 import pLimit from 'p-limit';
+import glob from 'glob-promise';
 
 import { welcome, log, br, informUpdate } from './helpers.js';
 import { uploadStyles, getCampaign } from './actions/campaigns.js';
@@ -12,10 +13,11 @@ import {
 	updateComponentFile,
 	updateComponentConfig,
 } from './actions/components.js';
+import { uploadPage } from './actions/pages.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
 
-export default async function deploy() {
+export default async function deploy(options = {}) {
 	// load config
 	let config = await loadConfig();
 	await getToken(program, config);
@@ -31,13 +33,12 @@ export default async function deploy() {
 		br();
 	}
 	log(
-		`You will overwrite the styles and components in your campaign.`,
+		`You will overwrite the styles, components, and pages in your campaign.`,
 		'white'
 	);
 	br();
 
-	if (!config.cli) {
-		// collect login details
+	if (!config.cli && !options.force) {
 		const response = await inquirer.prompt([
 			{
 				type: 'confirm',
@@ -109,6 +110,51 @@ export default async function deploy() {
 		});
 	} else {
 		loader.succeed();
+	}
+
+	// upload pages
+	const pageFiles = await glob('pages/**/*.json', {
+		cwd: process.cwd(),
+	});
+
+	const pageTasks = [];
+	for (const file of pageFiles) {
+		const fullPath = path.join(process.cwd(), file);
+		const pageData = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+		if (!pageData.uuid) {
+			continue;
+		}
+		if (
+			pageData.campaignUuid &&
+			!config.campaigns.includes(pageData.campaignUuid)
+		) {
+			continue;
+		}
+		pageTasks.push(limit(() => uploadPage(pageData)));
+	}
+
+	let pageRejected = [];
+	if (pageTasks.length > 0) {
+		const pageLoader = ora(`Uploading pages`).start();
+		const pageResults = await Promise.allSettled(pageTasks);
+
+		pageRejected = pageResults
+			.filter((result) => result.status === 'rejected')
+			.map((result) => result.reason);
+
+		if (pageRejected.length > 0) {
+			pageLoader.warn(
+				'The following errors occured while uploading pages:'
+			);
+			pageRejected.forEach((err) => {
+				log(err, 'red');
+			});
+		} else {
+			pageLoader.succeed();
+		}
+	}
+
+	if (rejected.length === 0 && pageRejected.length === 0) {
 		await informUpdate();
 	}
 	br();

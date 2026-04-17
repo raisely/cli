@@ -1,7 +1,6 @@
 import { program } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import path from 'path';
 import inquirer from 'inquirer';
 import express from 'express';
 import open from 'open';
@@ -19,6 +18,10 @@ import { welcome, log, br, error, informUpdate } from './helpers.js';
 import { processStyles, getBaseStyles } from './actions/campaigns.js';
 import { compileComponents } from './actions/components.js';
 import { getCampaigns } from './actions/campaigns.js';
+import {
+	compileAllLocalPages,
+	buildPageOverrideScript,
+} from './actions/pages.js';
 import { getToken } from './actions/auth.js';
 import { loadConfig } from './config.js';
 
@@ -83,7 +86,7 @@ export default async function start() {
 	app.use('/reload', async (req, res) => {
 		const hash = await hashElement('.', {
 			files: {
-				include: ['**/*.js', '**/*.scss'],
+				include: ['**/*.js', '**/*.scss', '**/*.json'],
 			},
 			folders: {
 				exclude: ['.*', 'node_modules', 'src', '.git', 'bin'],
@@ -144,21 +147,40 @@ export default async function start() {
 					const response = await new Promise((resolve, reject) => {
 						// trans
 						const decompressedChunks = [];
-						const decompressStream = new fzstd.Decompress((chunk, isLast) => {
-							// Add to list of decompressed chunks
-							decompressedChunks.push(chunk);
-							if (isLast) {
-								resolve(Buffer.concat(decompressedChunks).toString('utf8'));
+						const decompressStream = new fzstd.Decompress(
+							(chunk, isLast) => {
+								// Add to list of decompressed chunks
+								decompressedChunks.push(chunk);
+								if (isLast) {
+									resolve(
+										Buffer.concat(
+											decompressedChunks
+										).toString('utf8')
+									);
+								}
 							}
-						});
+						);
 						try {
 							decompressStream.push(responseBuffer);
 							decompressStream.push(new Uint8Array(0), true); // Need to tell the stream that it's ended
 						} catch (error) {
-							reject(error)
+							reject(error);
 						}
 					});
-					return response
+
+					let pageOverride = '';
+					if (response.includes('window.pageSchemas')) {
+						try {
+							const compiledMap = await compileAllLocalPages({
+								campaignUuid,
+							});
+							pageOverride = buildPageOverrideScript(compiledMap);
+						} catch (e) {
+							console.error(e);
+						}
+					}
+
+					let output = response
 						.replace(
 							`${
 								config.apiUrl || 'https://api.raisely.com'
@@ -170,10 +192,39 @@ export default async function start() {
 								config.apiUrl || 'https://api.raisely.com'
 							}/v3/campaigns/${campaignUuid}/components.js`,
 							`http://localhost:${PORT}/v3/campaigns/${campaignUuid}/components.js`
-						)
-						.replace(
-							'</head>',
-							`
+						);
+
+					// window.pageSchemas is set in the first large <script> in <body>.
+					// Inject after that </script> but before later bundles (and before the small
+					// `if (window.campaign)` script). Edge strips <!-- _footer_integrations_ -->
+					// before HTML is sent, and injecting before </body> runs too late (React
+					// already read pageSchemas).
+					if (pageOverride) {
+						const afterCampaignBootstrap =
+							/(<\/script>)(\s*<script>\s*if\s*\(\s*window\.campaign\s*\)\s*\{)/;
+						if (afterCampaignBootstrap.test(output)) {
+							output = output.replace(
+								afterCampaignBootstrap,
+								`$1${pageOverride}$2`
+							);
+						} else if (
+							output.includes('<!-- _footer_integrations_ -->')
+						) {
+							output = output.replace(
+								'<!-- _footer_integrations_ -->',
+								`${pageOverride}\n<!-- _footer_integrations_ -->`
+							);
+						} else {
+							output = output.replace(
+								'</body>',
+								`${pageOverride}\n</body>`
+							);
+						}
+					}
+
+					return output.replace(
+						'</head>',
+						`
 									<script>
 										const check = () => {
 											fetch('/reload')
@@ -190,7 +241,7 @@ export default async function start() {
 										var raiselyReload = setInterval(check, 500);
 									</script>
 								</head>`
-						);
+					);
 				}
 			),
 		})

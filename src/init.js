@@ -5,7 +5,7 @@ import ora from 'ora';
 
 import { welcome, log, br, error, informUpdate } from './helpers.js';
 import { getCampaigns } from './actions/campaigns.js';
-import { syncStyles, syncComponents } from './actions/sync.js';
+import { syncStyles, syncComponents, syncPages } from './actions/sync.js';
 import { saveConfig } from './config.js';
 import { doLogin } from './login.js';
 
@@ -66,6 +66,9 @@ export default async function init() {
 
 	// sync down custom components
 	await syncComponents();
+
+	// sync down campaign pages (v3 body JSON)
+	await syncPages();
 
 	br();
 	log('All done! You can start development by running:', 'green');

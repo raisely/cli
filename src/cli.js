@@ -45,6 +45,10 @@ export async function cli() {
 		.description(
 			'Synchronise (push) a remote Raisely campaign with the files on this machine'
 		)
+		.option(
+			'-f, --force',
+			'Deploy without asking for confirmation (non-interactive)'
+		)
 		.action(deploy);
 
 	program
