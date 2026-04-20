@@ -85,6 +85,8 @@ export default async function init(options = {}) {
 		organisationUuid,
 	};
 	if (program.api) config.apiUrl = program.api;
+	const proxyUrlFromEnv = process.env.RAISELY_PROXY_URL?.trim();
+	if (proxyUrlFromEnv) config.proxyUrl = proxyUrlFromEnv;
 	await saveConfig(config);
 
 	// sync down campaign stylesheets
