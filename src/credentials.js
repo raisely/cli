@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { runOAuthLogin } from './login.js';
 
 import { Entry } from '@napi-rs/keyring';
 
@@ -369,5 +370,14 @@ export async function getCredentials({ allowPrompt = true } = {}) {
 	if (!allowPrompt) {
 		throw new NotAuthenticatedError();
 	}
-	throw new NotAuthenticatedError();
+
+	// No stored credentials and the caller is allowed to prompt: run the
+	// OAuth browser flow, persist the result, and return the fresh token.
+	// Dynamic import avoids a circular dependency with login.js.
+
+	const tokenResponse = await runOAuthLogin();
+	return {
+		token: tokenResponse.access_token,
+		source: 'keyring',
+	};
 }

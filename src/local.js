@@ -32,6 +32,55 @@ import { loadConfig } from './config.js';
 
 // local development config
 const PORT = 8015;
+const DEFAULT_API_URL = 'https://api.raisely.com';
+
+/**
+ * Build a small script that, only when the user has opted into a non-prod API,
+ * rewrites browser API calls from https://api.raisely.com to config.apiUrl.
+ *
+ * The campaign's frontend bundle picks its API host from window.location.hostname,
+ * so when it's loaded over http://localhost:8015 it falls through to api.raisely.com.
+ * Patching fetch/XHR sidesteps that resolver without changing the bundle.
+ *
+ * Returns an empty string when apiUrl is the production default, so prod/staging
+ * users get exactly the previous behavior.
+ */
+function buildApiRedirectScript(apiUrl) {
+	if (!apiUrl || apiUrl === DEFAULT_API_URL) return '';
+	const target = apiUrl.replace(/\/$/, '');
+	return `
+<script>
+(function () {
+	var FROM = ${JSON.stringify(DEFAULT_API_URL)};
+	var TO = ${JSON.stringify(target)};
+	function rewrite(url) {
+		if (typeof url !== 'string') return url;
+		return url.indexOf(FROM) === 0 ? TO + url.slice(FROM.length) : url;
+	}
+	var originalFetch = window.fetch;
+	if (originalFetch) {
+		window.fetch = function (input, init) {
+			if (typeof input === 'string') {
+				return originalFetch(rewrite(input), init);
+			}
+			if (input && typeof input.url === 'string' && input.url.indexOf(FROM) === 0) {
+				return originalFetch(new Request(rewrite(input.url), input), init);
+			}
+			return originalFetch(input, init);
+		};
+	}
+	var XHR = window.XMLHttpRequest;
+	if (XHR && XHR.prototype && XHR.prototype.open) {
+		var originalOpen = XHR.prototype.open;
+		XHR.prototype.open = function (method, url) {
+			arguments[1] = rewrite(url);
+			return originalOpen.apply(this, arguments);
+		};
+	}
+})();
+</script>
+`;
+}
 
 function decompressZstdBuffer(responseBuffer) {
 	return new Promise((resolve, reject) => {
@@ -215,18 +264,22 @@ export default async function start(options = {}) {
 						}
 					}
 
+					// Match by path so it works regardless of whether the upstream
+					// embeds api.raisely.com, api.raisely.test:2999, or any other host.
+					const stylesPath = `/v3/campaigns/${campaignUuid}/styles.css`;
+					const componentsPath = `/v3/campaigns/${campaignUuid}/components.js`;
+					const localBase = `http://localhost:${PORT}`;
+					const upstreamUrlRe = (path) =>
+						new RegExp(
+							`https?://[^"'\\s)]+${path.replace(/[/.]/g, '\\$&')}`,
+							'g'
+						);
+
 					let output = response
+						.replace(upstreamUrlRe(stylesPath), `${localBase}${stylesPath}`)
 						.replace(
-							`${
-								config.apiUrl || 'https://api.raisely.com'
-							}/v3/campaigns/${campaignUuid}/styles.css`,
-							`http://localhost:${PORT}/v3/campaigns/${campaignUuid}/styles.css`
-						)
-						.replace(
-							`${
-								config.apiUrl || 'https://api.raisely.com'
-							}/v3/campaigns/${campaignUuid}/components.js`,
-							`http://localhost:${PORT}/v3/campaigns/${campaignUuid}/components.js`
+							upstreamUrlRe(componentsPath),
+							`${localBase}${componentsPath}`
 						);
 
 					// window.pageSchemas is set in the first large <script> in <body>.
@@ -255,6 +308,14 @@ export default async function start(options = {}) {
 								`${pageOverride}\n</body>`
 							);
 						}
+					}
+
+					const apiRedirectScript = buildApiRedirectScript(config.apiUrl);
+					if (apiRedirectScript) {
+						output = output.replace(
+							/<head([^>]*)>/i,
+							`<head$1>${apiRedirectScript}`
+						);
 					}
 
 					return output.replace(
