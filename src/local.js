@@ -45,10 +45,7 @@ export default async function start() {
 	// load the campaigns
 	const campaignsLoader = ora('Loading your campaigns...').start();
 	try {
-		data.campaigns = await getCampaigns({}, config.token, {
-			apiUrl: program.api,
-			...config,
-		});
+		data.campaigns = await getCampaigns();
 		campaignsLoader.succeed();
 	} catch (e) {
 		return error(e, campaignsLoader);

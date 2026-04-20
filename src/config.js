@@ -6,7 +6,7 @@ import inquirer from 'inquirer';
 
 import { br, log, error } from './helpers.js';
 
-const CONFIG_FILE = '.raisely.json';
+export const CONFIG_FILE = '.raisely.json';
 export const defaults = {
 	apiUrl: process.env.RAISELY_API_URL || 'https://api.raisely.com',
 };
@@ -82,16 +82,6 @@ async function hideFile() {
 export async function loadConfig({ allowEmpty = false } = {}) {
 	let config = {};
 
-	if (process.env.RAISELY_TOKEN) {
-		return Object.assign({}, defaults, {
-			token: process.env.RAISELY_TOKEN,
-			cli: true,
-			apiUrl: process.env.RAISELY_API_URL || defaults.apiUrl,
-			campaigns: process.env.RAISELY_CAMPAIGNS.split(','),
-			$tokenFromEnv: true,
-		});
-	}
-
 	try {
 		config = readConfig(CONFIG_FILE);
 	} catch (e) {
@@ -107,7 +97,19 @@ export async function loadConfig({ allowEmpty = false } = {}) {
 			}
 		}
 	}
-	return Object.assign({}, defaults, config);
+
+	const merged = Object.assign({}, defaults, config);
+
+	if (process.env.RAISELY_TOKEN) {
+		merged.$tokenFromEnv = true;
+	}
+	if (process.env.RAISELY_CAMPAIGNS) {
+		merged.campaigns = process.env.RAISELY_CAMPAIGNS.split(',').map((s) =>
+			s.trim()
+		);
+	}
+
+	return merged;
 }
 
 export async function saveConfig(config) {

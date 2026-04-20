@@ -65,12 +65,14 @@ export async function cli() {
 
 	program
 		.command('login')
-		.description('Authenticate with the Raisely api')
+		.description(
+			'Sign in with OAuth (browser); stores tokens in the OS keychain'
+		)
 		.action(login);
 
 	program
 		.command('logout')
-		.description('Logout from the Raisely api')
+		.description('Revoke the CLI session and clear stored credentials')
 		.action(logout);
 
 	program

@@ -1,6 +1,6 @@
 {
 	"name": "@raisely/cli",
-	"version": "2.0.0-alpha.1",
+	"version": "2.0.0-alpha.2",
 	"description": "Raisely CLI for local development",
 	"main": "./src/cli.js",
 	"type": "module",
@@ -20,6 +20,7 @@
 		"@babel/plugin-proposal-class-properties": "^7.16.7",
 		"@babel/preset-env": "^7.16.11",
 		"@babel/preset-react": "^7.16.7",
+		"@napi-rs/keyring": "^1.2.0",
 		"chalk": "^2.4.2",
 		"commander": "^9.2.0",
 		"express": "^4.17.3",

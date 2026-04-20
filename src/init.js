@@ -7,7 +7,11 @@ import { welcome, log, br, error, informUpdate } from './helpers.js';
 import { getCampaigns } from './actions/campaigns.js';
 import { syncStyles, syncComponents, syncPages } from './actions/sync.js';
 import { saveConfig } from './config.js';
-import { doLogin } from './login.js';
+import {
+	resolveOrganisationContext,
+	getCredentials,
+} from './credentials.js';
+import { runOAuthLogin } from './login.js';
 
 export default async function init() {
 	const data = {};
@@ -20,15 +24,26 @@ export default async function init() {
 	br();
 	console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
 	br();
-	log(`Log in to your Raisely account to start:`, 'white');
-	br();
 
-	const result = await doLogin();
-	if (!result) return;
+	let organisationUuid;
+	const ctx = await resolveOrganisationContext();
+	if (ctx) {
+		try {
+			await getCredentials({ allowPrompt: false });
+			organisationUuid = ctx.organisationUuid;
+			log(`Already signed in for this API. Skipping browser login.`, 'white');
+			br();
+		} catch {
+			// No valid stored session for this host; run OAuth below.
+		}
+	}
 
-	const { user, token } = result;
-	const { organisationUuid } = user;
-	await saveConfig({ token, organisationUuid });
+	if (!organisationUuid) {
+		log(`Sign in to your Raisely account to start:`, 'white');
+		br();
+		const tokenResponse = await runOAuthLogin();
+		organisationUuid = tokenResponse.organisation_uuid;
+	}
 
 	// load the campaigns
 	const campaignsLoader = ora('Loading your campaigns...').start();
@@ -54,7 +69,6 @@ export default async function init() {
 	]);
 
 	const config = {
-		token,
 		campaigns: campaigns.campaigns,
 		organisationUuid,
 	};

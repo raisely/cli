@@ -27,7 +27,9 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 
 ## Commands
 
--   `raisely init` - start a new Raisely project, authenticate and sync your campaigns
+-   `raisely init` - start a new Raisely project and sync your campaigns
+-   `raisely login` - sign in with OAuth (opens your browser); stores access and refresh tokens in the OS keychain
+-   `raisely logout` - revoke the current access token when possible and clear keychain storage for this org
 -   `raisely update` - update local copies of styles, components, and pages from the API
 -   `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
 -   `raisely start` - starts watching for and uploading changes to styles and components
@@ -46,14 +48,33 @@ By default, `raisely local` proxies to `https://{campaign.path}.raisely.com`. If
 
 The CLI turns that into `https://{campaign.path}.raiselysite.com` so the proxy matches production.
 
+## Authentication
+
+Interactive use relies on **OAuth 2.0 with PKCE** against `https://api.raisely.com/v1/oauth/authorize` and `/v1/oauth/token` (or your `RAISELY_API_URL` host for staging, for example `https://api.raisely.io`).
+
+1. Register a **NATIVE** app in Raisely admin (Settings → Apps), add loopback redirect URIs such as `http://127.0.0.1:8765/callback` (and 8766, 8767), and note the app `client_id` (UUID).
+2. Set **`RAISELY_OAUTH_CLIENT_ID`** to that UUID before running `raisely login` or `raisely init`. The CLI ships with a placeholder `client_id` until you replace it in the package.
+3. Optional: **`RAISELY_OAUTH_SCOPES`** overrides the default scopes (`campaigns:read campaigns:update pages:read`).
+
+Tokens are stored in the OS keychain under service `@raisely/cli`, with account name `{api_host}:{organisation_uuid}` (for example `api.raisely.com:aaaaaaaa-...`). The file `~/.raisely/session.json` records the last successful login’s host and organisation so commands work before `.raisely.json` exists.
+
+**Credential resolution order** for API calls:
+
+1. `RAISELY_TOKEN` (personal access token / campaign key), if set
+2. Keychain session for the current API host + `organisationUuid` (from `.raisely.json` or the session pointer)
+3. Legacy `token` field in `.raisely.json`
+
 ## CI/CD Usage
 
 Raisely CLI supports usage in a CI/CD environment for auto-deployment of styles and components. In this scenario you would use the CLI to deploy local code, and overwrite what is on a Raisely campaign or account.
 
 Raisely CLI supports the following environment variables:
 
--   `RAISELY_TOKEN` – your API secret key
+-   `RAISELY_TOKEN` – your API secret key (overrides keychain and `.raisely.json` token)
 -   `RAISELY_CAMPAIGNS` - a comma-separated list of campaign uuids to sync (so you can be selective)
+-   `RAISELY_OAUTH_CLIENT_ID` - OAuth NATIVE app client id (required for `raisely login` until a built-in id ships)
+-   `RAISELY_OAUTH_SCOPES` - optional space-separated OAuth scopes
+-   `RAISELY_API_URL` - API base URL (default `https://api.raisely.com`)
 
 _Note: All components are always synced, when they're present in the directory your syncing_
 

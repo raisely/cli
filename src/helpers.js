@@ -25,17 +25,20 @@ export function getPackageInfo() {
 	};
 }
 
+const NPM_DIST_TAGS_TIMEOUT_MS = 10_000;
+
 function checkUpdate() {
 	const pkg = getPackageInfo();
 	if (!updatePromise && pkg.version) {
 		const url = `https://registry.npmjs.org/-/package/${pkg.name}/dist-tags`;
-		updatePromise = fetch(url)
+		const signal = AbortSignal.timeout(NPM_DIST_TAGS_TIMEOUT_MS);
+		updatePromise = fetch(url, { signal })
 			.then((result) => result.json())
 			.then((result) => {
 				latestVersion = result.latest;
 			})
-			.catch((e) => {
-				// noop
+			.catch(() => {
+				// offline, blocked registry, or slow network; ignore
 			});
 	}
 }
@@ -125,25 +128,5 @@ export function error(e, loader) {
 		loader.fail(message);
 	} else {
 		console.log(`${chalk.bgRed('Error:')} ${chalk.red(message)}`);
-	}
-}
-
-export function requiresMfa(e) {
-	return e.subcode && e.subcode.startsWith('MFA required');
-}
-
-export function getMfaStrategy(e) {
-	// Extract if it's authy or authenticator
-	const subcodeArray = e.subcode.split(':');
-	const authType = subcodeArray[1];
-
-	return {
-		mfaType: authType,
-		// if authenticator, we need to know whether to offer authy as alternative
-		hasAuthy:  Boolean(
-			authType === 'AUTHY' ||
-				(subcodeArray.length === 3 &&
-					subcodeArray[2] === 'hasAuthy')
-			)
 	}
 }
