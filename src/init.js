@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 
 import { welcome, log, br, error, informUpdate } from './helpers.js';
-import { getCampaigns } from './actions/campaigns.js';
+import { getCampaigns, getCampaign } from './actions/campaigns.js';
 import { syncStyles, syncComponents, syncPages } from './actions/sync.js';
 import { saveConfig } from './config.js';
 import {
@@ -13,9 +13,7 @@ import {
 } from './credentials.js';
 import { runOAuthLogin } from './login.js';
 
-export default async function init() {
-	const data = {};
-
+export default async function init(options = {}) {
 	welcome();
 	log(
 		`You're about to initialize a Raisely campaign in this directory`,
@@ -45,31 +43,45 @@ export default async function init() {
 		organisationUuid = tokenResponse.organisation_uuid;
 	}
 
-	// load the campaigns
-	const campaignsLoader = ora('Loading your campaigns...').start();
-	try {
-		data.campaigns = await getCampaigns();
-		campaignsLoader.succeed();
-	} catch (e) {
-		return error(e, campaignsLoader);
+	let selectedCampaigns;
+
+	if (options.uuid) {
+		const loader = ora(`Loading campaign ${options.uuid}...`).start();
+		try {
+			const { data: campaign } = await getCampaign({ uuid: options.uuid });
+			loader.succeed(`Using campaign: ${campaign.name} (${campaign.path})`);
+			selectedCampaigns = [campaign.uuid];
+		} catch (e) {
+			return error(e, loader);
+		}
+	} else {
+		const campaignsLoader = ora('Loading your campaigns...').start();
+		let data;
+		try {
+			data = await getCampaigns();
+			campaignsLoader.succeed();
+		} catch (e) {
+			return error(e, campaignsLoader);
+		}
+
+		const campaigns = await inquirer.prompt([
+			{
+				type: 'checkbox',
+				name: 'campaigns',
+				message: 'Select the campaigns to sync:',
+				choices: data.data.map((c) => ({
+					name: `${c.name} (${c.path})`,
+					value: c.uuid,
+					short: c.path,
+				})),
+			},
+		]);
+
+		selectedCampaigns = campaigns.campaigns;
 	}
 
-	// select the campaigns to sync
-	const campaigns = await inquirer.prompt([
-		{
-			type: 'checkbox',
-			name: 'campaigns',
-			message: 'Select the campaigns to sync:',
-			choices: data.campaigns.data.map((c) => ({
-				name: `${c.name} (${c.path})`,
-				value: c.uuid,
-				short: c.path,
-			})),
-		},
-	]);
-
 	const config = {
-		campaigns: campaigns.campaigns,
+		campaigns: selectedCampaigns,
 		organisationUuid,
 	};
 	if (program.api) config.apiUrl = program.api;

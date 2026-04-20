@@ -32,6 +32,10 @@ export async function cli() {
 	program
 		.command('init')
 		.description('Initialize a remote Raisely campaign to this machine')
+		.option(
+			'--uuid <uuid>',
+			'Initialize a specific campaign by UUID (skips the campaign picker)'
+		)
 		.action(init);
 
 	program
