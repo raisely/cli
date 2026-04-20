@@ -28,6 +28,7 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 ## Commands
 
 -   `raisely init` - start a new Raisely project and sync your campaigns
+-   `raisely list` - list every campaign (Name, Uuid), sorted A-Z; prints a padded table in a terminal, TSV when stdout is piped (`raisely list | cut -f2`), and `--json` / `--tsv` force a format
 -   `raisely login` - sign in with OAuth (opens your browser); stores access and refresh tokens in the OS keychain
 -   `raisely logout` - revoke the current access token when possible and clear keychain storage for this org
 -   `raisely update` - update local copies of styles, components, and pages from the API

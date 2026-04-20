@@ -3,11 +3,39 @@ import path from 'path';
 import fs from 'fs';
 import api from './api.js';
 
-export async function getCampaigns() {
-	return await api({
-		path: '/campaigns',
-		method: 'GET',
-	});
+export async function getCampaigns({ all = false } = {}) {
+	if (!all) {
+		return await api({
+			path: '/campaigns',
+			method: 'GET',
+		});
+	}
+
+	const limit = 100;
+	let offset = 0;
+	const data = [];
+	let pagination;
+
+	while (true) {
+		const page = await api({
+			path: `/campaigns?limit=${limit}&offset=${offset}`,
+			method: 'GET',
+		});
+		data.push(...page.data);
+		pagination = page.pagination;
+		if (page.data.length === 0) {
+			break;
+		}
+		if (pagination?.total != null && data.length >= pagination.total) {
+			break;
+		}
+		if (page.data.length < limit) {
+			break;
+		}
+		offset += limit;
+	}
+
+	return { data, pagination };
 }
 
 export async function getCampaign({ uuid }) {

@@ -23,6 +23,7 @@ const deploy = actionBuilder(() => import('./deploy.js'));
 const login = actionBuilder(() => import('./login.js'));
 const logout = actionBuilder(() => import('./logout.js'));
 const local = actionBuilder(() => import('./local.js'));
+const list = actionBuilder(() => import('./list.js'));
 
 export async function cli() {
 	const pkg = getPackageInfo();
@@ -79,6 +80,13 @@ export async function cli() {
 		.command('local')
 		.description('Start local development server for a single campaign.')
 		.action(local);
+
+	program
+		.command('list')
+		.description('List all campaigns in your organisation (Name, Uuid)')
+		.option('--json', 'Output as JSON (forces machine format)')
+		.option('--tsv', 'Output as tab-separated values (forces machine format)')
+		.action(list);
 
 	// Make sure we show help after a bad command
 	program.showHelpAfterError();
