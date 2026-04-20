@@ -285,7 +285,7 @@ export async function refreshAccessToken(accountKey, apiUrl) {
 
 	refreshInFlight.set(accountKey, refreshPromise);
 	try {
-		await p;
+		await refreshPromise;
 	} finally {
 		refreshInFlight.delete(accountKey);
 	}

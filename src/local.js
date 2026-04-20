@@ -6,6 +6,7 @@ import express from 'express';
 import open from 'open';
 import sass from 'node-sass';
 import { hashElement } from 'folder-hash';
+import zlib from 'zlib';
 import * as fzstd from 'fzstd';
 
 import {
@@ -15,9 +16,13 @@ import {
 
 import { welcome, log, br, error, informUpdate } from './helpers.js';
 
-import { processStyles, getBaseStyles } from './actions/campaigns.js';
+import {
+	processStyles,
+	getBaseStyles,
+	getCampaigns,
+	getCampaign,
+} from './actions/campaigns.js';
 import { compileComponents } from './actions/components.js';
-import { getCampaigns } from './actions/campaigns.js';
 import {
 	compileAllLocalPages,
 	buildPageOverrideScript,
@@ -28,7 +33,44 @@ import { loadConfig } from './config.js';
 // local development config
 const PORT = 8015;
 
-export default async function start() {
+function decompressZstdBuffer(responseBuffer) {
+	return new Promise((resolve, reject) => {
+		const decompressedChunks = [];
+		const decompressStream = new fzstd.Decompress((chunk, isLast) => {
+			decompressedChunks.push(chunk);
+			if (isLast) {
+				resolve(Buffer.concat(decompressedChunks).toString('utf8'));
+			}
+		});
+		try {
+			decompressStream.push(responseBuffer);
+			decompressStream.push(new Uint8Array(0), true);
+		} catch (error) {
+			reject(error);
+		}
+	});
+}
+
+/** Decode proxied body; encoding may be zstd, br, gzip, or plain (already decompressed). */
+async function decodeProxyResponseBuffer(responseBuffer, proxyRes) {
+	const enc = String(proxyRes.headers['content-encoding'] || '').toLowerCase();
+	try {
+		if (enc.includes('zstd')) {
+			return await decompressZstdBuffer(responseBuffer);
+		}
+		if (enc.includes('br')) {
+			return zlib.brotliDecompressSync(responseBuffer).toString('utf8');
+		}
+		if (enc.includes('gzip')) {
+			return zlib.gunzipSync(responseBuffer).toString('utf8');
+		}
+	} catch {
+		// Middleware may have already decompressed while leaving a stale encoding header.
+	}
+	return responseBuffer.toString('utf8');
+}
+
+export default async function start(options = {}) {
 	welcome();
 
 	// load config
@@ -39,34 +81,50 @@ export default async function start() {
 
 	await informUpdate();
 
-	// in-memory state object
-	const data = {};
+	let campaignPath;
+	let campaignUuid;
 
-	// load the campaigns
-	const campaignsLoader = ora('Loading your campaigns...').start();
-	try {
-		data.campaigns = await getCampaigns();
-		campaignsLoader.succeed();
-	} catch (e) {
-		return error(e, campaignsLoader);
+	if (options.uuid) {
+		const loader = ora(`Loading campaign ${options.uuid}...`).start();
+		try {
+			const { data: campaign } = await getCampaign({ uuid: options.uuid });
+			loader.succeed(`Using campaign: ${campaign.name} (${campaign.path})`);
+			campaignPath = campaign.path;
+			campaignUuid = campaign.uuid;
+		} catch (e) {
+			return error(e, loader);
+		}
+	} else {
+		// in-memory state object
+		const data = {};
+
+		// load the campaigns
+		const campaignsLoader = ora('Loading your campaigns...').start();
+		try {
+			data.campaigns = await getCampaigns();
+			campaignsLoader.succeed();
+		} catch (e) {
+			return error(e, campaignsLoader);
+		}
+
+		// select the campaigns to sync
+		const campaign = await inquirer.prompt([
+			{
+				type: 'list',
+				name: 'path',
+				message: 'Select the campaign to open:',
+				choices: data.campaigns.data.map((c) => ({
+					name: `${c.name} (${c.path})`,
+					value: c.path,
+					short: c.path,
+				})),
+			},
+		]);
+		campaignPath = campaign.path;
+		campaignUuid = data.campaigns.data.find(
+			(c) => c.path === campaign.path
+		).uuid;
 	}
-
-	// select the campaigns to sync
-	const campaign = await inquirer.prompt([
-		{
-			type: 'list',
-			name: 'path',
-			message: 'Select the campaign to open:',
-			choices: data.campaigns.data.map((c) => ({
-				name: `${c.name} (${c.path})`,
-				value: c.path,
-				short: c.path,
-			})),
-		},
-	]);
-	const campaignUuid = data.campaigns.data.find(
-		(c) => c.path === campaign.path
-	).uuid;
 
 	// fetch base styles from the API
 	const base = await getBaseStyles({
@@ -75,8 +133,8 @@ export default async function start() {
 
 	// determine proxy target
 	const target = config.proxyUrl
-		? config.proxyUrl.replace('https://', `https://${campaign.path}.`)
-		: `https://${campaign.path}.raisely.com`;
+		? config.proxyUrl.replace('https://', `https://${campaignPath}.`)
+		: `https://${campaignPath}.raisely.com`;
 
 	const app = express();
 
@@ -99,7 +157,7 @@ export default async function start() {
 		try {
 			// get the local styles to append
 			const styles = await processStyles({
-				campaign: campaign.path,
+				campaign: campaignPath,
 			});
 
 			// run through SASS
@@ -140,30 +198,10 @@ export default async function start() {
 			selfHandleResponse: true,
 			onProxyRes: responseInterceptor(
 				async (responseBuffer, proxyRes, req, res) => {
-					// convert zstd compressed buffer to string
-					const response = await new Promise((resolve, reject) => {
-						// trans
-						const decompressedChunks = [];
-						const decompressStream = new fzstd.Decompress(
-							(chunk, isLast) => {
-								// Add to list of decompressed chunks
-								decompressedChunks.push(chunk);
-								if (isLast) {
-									resolve(
-										Buffer.concat(
-											decompressedChunks
-										).toString('utf8')
-									);
-								}
-							}
-						);
-						try {
-							decompressStream.push(responseBuffer);
-							decompressStream.push(new Uint8Array(0), true); // Need to tell the stream that it's ended
-						} catch (error) {
-							reject(error);
-						}
-					});
+					const response = await decodeProxyResponseBuffer(
+						responseBuffer,
+						proxyRes
+					);
 
 					let pageOverride = '';
 					if (response.includes('window.pageSchemas')) {

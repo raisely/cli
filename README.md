@@ -37,6 +37,7 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 -   `raisely start` - starts watching for and uploading changes to styles and components
 -   `raisely deploy` - deploy your local code to Raisely (styles, components, and pages)
 -   `raisely local` - work locally on a Raisely campaign without syncing changes up (includes local page JSON overrides when `pages/` is present)
+-   `raisely local --uuid <uuid>` - open a specific campaign by UUID, skipping the picker
 
 ### Custom public host (`raisely local`)
 

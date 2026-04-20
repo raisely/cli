@@ -83,6 +83,10 @@ export async function cli() {
 	program
 		.command('local')
 		.description('Start local development server for a single campaign.')
+		.option(
+			'--uuid <uuid>',
+			'Open a specific campaign by UUID (skips the campaign picker)'
+		)
 		.action(local);
 
 	program
