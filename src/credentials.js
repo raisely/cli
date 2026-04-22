@@ -32,7 +32,7 @@ export function getOAuthClientId() {
 export function getOAuthScopes() {
 	return (
 		process.env.RAISELY_OAUTH_SCOPES ||
-		'campaigns:read campaigns:update pages:read components:read components:update'
+		'campaigns:read campaigns:update pages:read pages:update components:read components:update'
 	);
 }
 
