@@ -1,4 +1,0 @@
-ignoredBuiltDependencies:
-  - node-sass
-onlyBuiltDependencies:
-  - node-sass

@@ -4,7 +4,7 @@ import ora from 'ora';
 import inquirer from 'inquirer';
 import express from 'express';
 import open from 'open';
-import sass from 'node-sass';
+import fetch from 'node-fetch';
 import { hashElement } from 'folder-hash';
 import zlib from 'zlib';
 import * as fzstd from 'fzstd';
@@ -204,18 +204,42 @@ export default async function start(options = {}) {
 		res.set('Content-Type', 'text/css');
 
 		try {
-			// get the local styles to append
+			const transpilerUrl =
+				process.env.SASS_TRANSPILER_URL?.trim() ||
+				'https://sass-transpiler.raisely.com';
+
 			const styles = await processStyles({
 				campaign: campaignPath,
 			});
 
-			// run through SASS
-			const compiled = sass.renderSync({
-				data: base + styles,
-				outputStyle: 'expanded',
-			});
+			const response = await fetch(
+				`${transpilerUrl.replace(/\/$/, '')}/transpile`,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/scss',
+						Authorization: `Bearer ${config.token}`,
+					},
+					body: base + styles,
+				}
+			);
 
-			res.send(compiled.css);
+			if (response.status === 401) {
+				console.error(
+					'SASS transpiler returned 401: token rejected when validating against the API.'
+				);
+				res.sendStatus(401);
+				process.exit(1);
+			}
+			if (!response.ok) {
+				console.error(
+					`SASS transpiler failed: ${response.status} ${response.statusText}`
+				);
+				return res.sendStatus(502);
+			}
+
+			const css = await response.text();
+			res.send(css);
 		} catch (e) {
 			console.error(e);
 			res.sendStatus(500);
@@ -355,6 +379,8 @@ export default async function start(options = {}) {
 		br();
 	}
 	log(`Opening your development site now...`, 'white');
+	log(`http://localhost:${PORT}`, 'white');
+	br();
 	log(`Use CTRL + C to stop`, 'white');
 
 	open(`http://localhost:${PORT}`, {

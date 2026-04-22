@@ -171,6 +171,9 @@ export async function runOAuthLogin() {
 	});
 
 	const authorizeUrl = `${apiUrl}/v1/oauth/authorize?${params.toString()}`;
+	log(`If the browser doesn't open automatically, open this URL in your browser to sign in:`, 'yellow');
+	log(authorizeUrl, 'white');
+	br();
 
 	try {
 		await open(authorizeUrl, { background: true });
