@@ -11,7 +11,7 @@ export const KEYCHAIN_SERVICE = '@raisely/cli';
 export const SESSION_DIR = path.join(os.homedir(), '.raisely');
 export const SESSION_FILE = path.join(SESSION_DIR, 'session.json');
 
-export const OAUTH_CLIENT_ID_PLACEHOLDER = 'dd351b20-3ab6-11f1-94a6-69c9c59c597d';
+export const OAUTH_CLIENT_ID_PLACEHOLDER ='a4151d50-3f65-11f1-8a2b-25aca0e28fce';
 
 const REFRESH_WINDOW_MS = 5 * 60 * 1000;
 
