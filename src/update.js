@@ -7,14 +7,12 @@ import { syncStyles, syncComponents, syncPages } from './actions/sync.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
 
-export default async function update() {
+export default async function update(options = {}) {
 	// load config
 	let config = await loadConfig();
 
 	// Load token, which will prompt a login if the token is expired
 	await getToken(program, config, true);
-
-	const data = {};
 
 	welcome();
 	log(
@@ -32,18 +30,19 @@ export default async function update() {
 	log(`You will lose any unsaved changes.`, 'white');
 	br();
 
-	// collect login details
-	const response = await inquirer.prompt([
-		{
-			type: 'confirm',
-			name: 'confirm',
-			message: 'Are you sure you want to continue?',
-		},
-	]);
+	if (!config.cli && !options.force) {
+		const response = await inquirer.prompt([
+			{
+				type: 'confirm',
+				name: 'confirm',
+				message: 'Are you sure you want to continue?',
+			},
+		]);
 
-	if (!response.confirm) {
-		br();
-		return log('Update aborted', 'red');
+		if (!response.confirm) {
+			br();
+			return log('Update aborted', 'red');
+		}
 	}
 
 	// sync down campaign stylesheets

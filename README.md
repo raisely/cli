@@ -4,7 +4,7 @@
 
 The Raisely CLI is used to power local development of Raisely themes, syncing custom components, campaign styles, and campaign pages to your local machine.
 
-For more about Raisely, see <https://raisely.com>
+For more about Raisely, see [https://raisely.com](https://raisely.com)
 
 ## Overview
 
@@ -33,6 +33,7 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 -   `raisely login` - sign in with OAuth (opens your browser); stores access and refresh tokens in the OS keychain
 -   `raisely logout` - revoke the current access token when possible and clear keychain storage for this org
 -   `raisely update` - update local copies of styles, components, and pages from the API
+-   `raisely update --force` - same as above without the confirmation prompt (for CI/scripts)
 -   `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
 -   `raisely start` - starts watching for and uploading changes to styles and components
 -   `raisely deploy` - deploy your local code to Raisely (styles, components, and pages)
@@ -41,7 +42,7 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 
 ### Custom public host (`raisely local`)
 
-By default, `raisely local` proxies to `https://{campaign.path}.raisely.com`. If the site people visit is on another host (for example `https://{campaign.path}.raiselysite.com`), add **`proxyUrl`** to `.raisely.json` with the bare domain (no campaign subdomain):
+By default, `raisely local` proxies to `https://{campaign.path}.raisely.com`. If the site people visit is on another host (for example `https://{campaign.path}.raiselysite.com`), add `**proxyUrl**` to `.raisely.json` with the bare domain (no campaign subdomain):
 
 ```json
 {
@@ -56,8 +57,8 @@ The CLI turns that into `https://{campaign.path}.raiselysite.com` so the proxy m
 Interactive use relies on **OAuth 2.0 with PKCE** against `https://api.raisely.com/v1/oauth/authorize` and `/v1/oauth/token` (or your `RAISELY_API_URL` host for staging, for example `https://api.raisely.io`).
 
 1. Register a **NATIVE** app in Raisely admin (Settings → Apps), add loopback redirect URIs such as `http://127.0.0.1:8765/callback` (and 8766, 8767), and note the app `client_id` (UUID).
-2. Set **`RAISELY_OAUTH_CLIENT_ID`** to that UUID before running `raisely login` or `raisely init`. The CLI ships with a placeholder `client_id` until you replace it in the package.
-3. Optional: **`RAISELY_OAUTH_SCOPES`** overrides the default scopes (`campaigns:read campaigns:update pages:read`).
+2. Set `**RAISELY_OAUTH_CLIENT_ID`\*\* to that UUID before running `raisely login` or `raisely init`. The CLI ships with a placeholder `client_id` until you replace it in the package.
+3. Optional: `**RAISELY_OAUTH_SCOPES**` overrides the default scopes (`campaigns:read campaigns:update pages:read`).
 
 Tokens are stored in the OS keychain under service `@raisely/cli`, with account name `{api_host}:{organisation_uuid}` (for example `api.raisely.com:aaaaaaaa-...`). The file `~/.raisely/session.json` records the last successful login’s host and organisation so commands work before `.raisely.json` exists.
 
