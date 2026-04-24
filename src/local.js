@@ -378,12 +378,18 @@ export default async function start(options = {}) {
 		console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
 		br();
 	}
-	log(`Opening your development site now...`, 'white');
+	if (options.open) {
+		log(`Opening your development site now...`, 'white');
+	} else {
+		log(`Your development site:`, 'white');
+	}
 	log(`http://localhost:${PORT}`, 'white');
 	br();
 	log(`Use CTRL + C to stop`, 'white');
 
-	open(`http://localhost:${PORT}`, {
-		background: true,
-	});
+	if (options.open) {
+		open(`http://localhost:${PORT}`, {
+			background: true,
+		});
+	}
 }

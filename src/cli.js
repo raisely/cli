@@ -91,6 +91,7 @@ export async function cli() {
 			'--uuid <uuid>',
 			'Open a specific campaign by UUID (skips the campaign picker)'
 		)
+		.option('--no-open', 'Do not open a browser window')
 		.action(local);
 
 	program
