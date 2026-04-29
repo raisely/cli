@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +39,15 @@ test('resolveCampaignPaths handles hyphenated campaign paths', () => {
 	);
 });
 
+test('resolveCampaignPaths handles special-but-valid campaign paths', () => {
+	const result = resolveCampaignPaths('/repo', 'spring_2026');
+	assert.equal(result.pagesDir, '/repo/campaigns/spring_2026/pages');
+	assert.equal(
+		result.mainScss,
+		'/repo/campaigns/spring_2026/stylesheets/main.scss'
+	);
+});
+
 test('resolveCampaignPaths does not require directories to exist', () => {
 	// Should return paths without throwing even when the directory is absent.
 	const result = resolveCampaignPaths('/nonexistent/root', 'phantom-campaign');
@@ -57,6 +67,22 @@ test('detectLayout returns "legacy" for a repo with top-level pages/ and stylesh
 test('detectLayout returns "v2" for a repo with campaigns/ and no legacy dirs', () => {
 	const layout = detectLayout(path.join(fixturesDir, 'v2'));
 	assert.equal(layout, 'v2');
+});
+
+test('detectLayout handles fixtures containing special-but-valid campaign paths', () => {
+	const legacyFixture = path.join(fixturesDir, 'legacy');
+	const v2Fixture = path.join(fixturesDir, 'v2');
+
+	assert.equal(
+		fs.existsSync(path.join(legacyFixture, 'pages', 'spring_2026')),
+		true
+	);
+	assert.equal(
+		fs.existsSync(path.join(v2Fixture, 'campaigns', 'spring_2026')),
+		true
+	);
+	assert.equal(detectLayout(legacyFixture), 'legacy');
+	assert.equal(detectLayout(v2Fixture), 'v2');
 });
 
 test('detectLayout returns "mixed" for a repo that has both legacy and v2 dirs', () => {
