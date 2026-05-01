@@ -3,5 +3,7 @@
     "path": "/",
     "title": "Spring Campaign Home",
     "name": "home",
-    "status": "published"
+    "status": "published",
+    "body": [],
+    "campaignUuid": "campaign-uuid-spring-2026"
 }
