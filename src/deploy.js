@@ -60,9 +60,7 @@ export default async function deploy(options = {}) {
 		const campaign = await getCampaign({ uuid: campaignUuid });
 
 		try {
-			await uploadStyles(
-				`${campaign.data.path}${path.sep}${campaign.data.path}.scss`
-			);
+			await uploadStyles(campaign.data.path);
 		} catch (e) {
 			br();
 			console.error(e);
@@ -113,7 +111,7 @@ export default async function deploy(options = {}) {
 	}
 
 	// upload pages
-	const pageFiles = await glob('pages/**/*.json', {
+	const pageFiles = await glob('campaigns/*/pages/**/*.json', {
 		cwd: process.cwd(),
 	});
 

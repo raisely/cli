@@ -11,7 +11,8 @@ export const KEYCHAIN_SERVICE = '@raisely/cli';
 export const SESSION_DIR = path.join(os.homedir(), '.raisely');
 export const SESSION_FILE = path.join(SESSION_DIR, 'session.json');
 
-export const OAUTH_CLIENT_ID_PLACEHOLDER ='a4151d50-3f65-11f1-8a2b-25aca0e28fce';
+export const OAUTH_CLIENT_ID_PLACEHOLDER =
+	'a4151d50-3f65-11f1-8a2b-25aca0e28fce';
 
 const REFRESH_WINDOW_MS = 5 * 60 * 1000;
 
@@ -42,7 +43,9 @@ export function getHost(apiUrl) {
 
 export function getAccountKey({ apiUrl, organisationUuid }) {
 	if (!apiUrl || !organisationUuid) {
-		throw new Error('apiUrl and organisationUuid are required for keychain key');
+		throw new Error(
+			'apiUrl and organisationUuid are required for keychain key'
+		);
 	}
 	return `${getHost(apiUrl)}:${organisationUuid}`;
 }
@@ -66,11 +69,7 @@ export function writeSessionPointer({ host, organisationUuid }) {
 
 export function clearSessionPointerIfMatches(host, organisationUuid) {
 	const s = readSessionPointer();
-	if (
-		s &&
-		s.host === host &&
-		s.organisationUuid === organisationUuid
-	) {
+	if (s && s.host === host && s.organisationUuid === organisationUuid) {
 		try {
 			fs.unlinkSync(SESSION_FILE);
 		} catch {
@@ -111,7 +110,8 @@ export function getKeychainEntry(accountKey) {
  */
 function rethrowFetchFailure(fetchUrl, e) {
 	const c = e && typeof e === 'object' && 'cause' in e ? e.cause : null;
-	const detail = c && typeof c === 'object' && 'message' in c ? c.message : e.message;
+	const detail =
+		c && typeof c === 'object' && 'message' in c ? c.message : e.message;
 	const code = c && typeof c === 'object' && 'code' in c ? c.code : '';
 	const parts = [`Request to ${fetchUrl} failed: ${detail}`];
 	if (code) parts.push(`(${code})`);
@@ -153,7 +153,9 @@ export async function oauthRequestToken(apiUrl, body) {
 		json = JSON.parse(text);
 	} catch {
 		const err = new Error(
-			`Token endpoint returned non-JSON (${response.status}): ${text.slice(0, 200)}`
+			`Token endpoint returned non-JSON (${
+				response.status
+			}): ${text.slice(0, 200)}`
 		);
 		err.status = response.status;
 		throw err;
@@ -161,7 +163,10 @@ export async function oauthRequestToken(apiUrl, body) {
 
 	if (!response.ok) {
 		const err = new Error(
-			json.error_description || json.error || response.statusText || 'Token request failed'
+			json.error_description ||
+				json.error ||
+				response.statusText ||
+				'Token request failed'
 		);
 		err.code = json.error;
 		err.status = response.status;
@@ -185,7 +190,10 @@ export async function saveCredentials({
 	refresh_token,
 	expires_in,
 }) {
-	const accountKey = getAccountKey({ apiUrl, organisationUuid: organisation_uuid });
+	const accountKey = getAccountKey({
+		apiUrl,
+		organisationUuid: organisation_uuid,
+	});
 	const expires_at = Date.now() + expires_in * 1000;
 	const payload = {
 		access_token,
@@ -250,7 +258,9 @@ export async function refreshAccessToken(accountKey, apiUrl) {
 		throw new NotAuthenticatedError('Stored credentials are corrupted');
 	}
 	if (!stored.refresh_token) {
-		throw new NotAuthenticatedError('No refresh token stored; run `raisely login`');
+		throw new NotAuthenticatedError(
+			'No refresh token stored; run `raisely login`'
+		);
 	}
 
 	const clientId = getOAuthClientId();
@@ -278,7 +288,10 @@ export async function refreshAccessToken(accountKey, apiUrl) {
 				e.status === 401 ||
 				e.status === 400
 			) {
-				clearCredentials({ apiUrl, organisationUuid: stored.organisation_uuid });
+				clearCredentials({
+					apiUrl,
+					organisationUuid: stored.organisation_uuid,
+				});
 			}
 			throw e;
 		}
@@ -338,7 +351,9 @@ export async function getCredentials({ allowPrompt = true } = {}) {
 			try {
 				stored = JSON.parse(raw);
 			} catch {
-				throw new NotAuthenticatedError('Stored credentials are corrupted');
+				throw new NotAuthenticatedError(
+					'Stored credentials are corrupted'
+				);
 			}
 			if (needsProactiveRefresh(stored)) {
 				try {
