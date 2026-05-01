@@ -169,6 +169,35 @@ test('migrate does not rename a nested scss file that shares the campaign name',
 });
 
 // ---------------------------------------------------------------------------
+// A file already named main.scss in the source must land in report.moved, not report.renamed
+// ---------------------------------------------------------------------------
+
+test('migrate classifies a source main.scss as moved, not renamed', async (t) => {
+	const cleanupFns = [];
+	t.after(() => cleanupFns.forEach((fn) => fn()));
+
+	// Uses a fixture where the stylesheet is already named main.scss (no <campaign>.scss to rename).
+	const repoRoot = copyFixture('legacy-only-main-scss', cleanupFns);
+	const getCampaign = mockGetCampaign({ 'uuid-my-campaign': 'my-campaign' });
+
+	const report = await migrate({
+		repoRoot,
+		campaigns: ['uuid-my-campaign'],
+		getCampaign,
+	});
+
+	// The file was moved (not renamed), so it must appear in report.moved, not report.renamed.
+	assert.ok(
+		report.moved.some((p) => p.endsWith('main.scss')),
+		'report.moved should contain main.scss (source was already named main.scss)'
+	);
+	assert.ok(
+		!report.renamed.some((p) => p.endsWith('main.scss')),
+		'report.renamed must not contain main.scss when no rename occurred'
+	);
+});
+
+// ---------------------------------------------------------------------------
 // Multi-campaign migration + empty root cleanup
 // ---------------------------------------------------------------------------
 

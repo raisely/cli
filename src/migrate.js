@@ -133,7 +133,7 @@ function moveDirContents(src, dst, entryScssPrefix, report) {
 			fs.mkdirSync(path.dirname(dstPath), { recursive: true });
 			fs.renameSync(srcPath, dstPath);
 
-			if (dstName === 'main.scss') {
+			if (entryScssPrefix && entry.name === `${entryScssPrefix}.scss`) {
 				report.renamed.push(dstPath);
 			} else {
 				report.moved.push(dstPath);
