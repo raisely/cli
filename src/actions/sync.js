@@ -5,14 +5,10 @@ import fs from 'fs';
 import api from './api.js';
 import { error } from '../helpers.js';
 import { loadConfig } from '../config.js';
+import { resolveCampaignPaths } from './layout.js';
 
 export async function syncStyles() {
 	const config = await loadConfig();
-
-	const directory = path.join(process.cwd(), 'stylesheets');
-	if (!fs.existsSync(directory)) {
-		fs.mkdirSync(directory);
-	}
 
 	const loader = ora('Downloading campaign stylesheets...').start();
 	try {
@@ -21,18 +17,19 @@ export async function syncStyles() {
 				path: `/campaigns/${uuid}?private=1`,
 			});
 
-			const campaignDir = path.join(directory, campaign.data.path);
+			const { stylesheetsDir, mainScss } = resolveCampaignPaths(
+				process.cwd(),
+				campaign.data.path
+			);
 
-			if (!fs.existsSync(campaignDir)) {
-				fs.mkdirSync(campaignDir);
+			if (!fs.existsSync(stylesheetsDir)) {
+				fs.mkdirSync(stylesheetsDir, { recursive: true });
 			}
 
 			if (campaign.data.config.css.files) {
 				const files = campaign.data.config.css.files;
 
-				for (const file of Object.keys(
-					campaign.data.config.css.files
-				)) {
+				for (const file of Object.keys(files)) {
 					const fileFolder = file
 						.split('/')
 						.filter((f) => !f.includes('.'));
@@ -40,7 +37,7 @@ export async function syncStyles() {
 						.split('/')
 						.filter((f) => f.includes('.'))
 						.join('');
-					const fileDir = path.join(campaignDir, ...fileFolder);
+					const fileDir = path.join(stylesheetsDir, ...fileFolder);
 
 					if (!fs.existsSync(fileDir)) {
 						fs.mkdirSync(fileDir, { recursive: true });
@@ -50,10 +47,7 @@ export async function syncStyles() {
 				}
 			}
 
-			fs.writeFileSync(
-				path.join(campaignDir, `${campaign.data.path}.scss`),
-				campaign.data.config.css.custom_css
-			);
+			fs.writeFileSync(mainScss, campaign.data.config.css.custom_css);
 		}
 		loader.succeed();
 	} catch (e) {
@@ -73,11 +67,6 @@ function pageFileName(page) {
 export async function syncPages() {
 	const config = await loadConfig();
 
-	const directory = path.join(process.cwd(), 'pages');
-	if (!fs.existsSync(directory)) {
-		fs.mkdirSync(directory);
-	}
-
 	const loader = ora('Downloading campaign pages...').start();
 	try {
 		for (const uuid of config.campaigns) {
@@ -85,9 +74,13 @@ export async function syncPages() {
 				path: `/campaigns/${uuid}?private=1`,
 			});
 
-			const campaignPagesDir = path.join(directory, campaign.data.path);
-			if (!fs.existsSync(campaignPagesDir)) {
-				fs.mkdirSync(campaignPagesDir, { recursive: true });
+			const { pagesDir } = resolveCampaignPaths(
+				process.cwd(),
+				campaign.data.path
+			);
+
+			if (!fs.existsSync(pagesDir)) {
+				fs.mkdirSync(pagesDir, { recursive: true });
 			}
 
 			const pages = await api({
@@ -114,7 +107,7 @@ export async function syncPages() {
 				};
 
 				fs.writeFileSync(
-					path.join(campaignPagesDir, pageFileName(page)),
+					path.join(pagesDir, pageFileName(page)),
 					JSON.stringify(out, null, 4)
 				);
 			}

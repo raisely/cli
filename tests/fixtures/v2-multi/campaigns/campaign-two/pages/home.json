@@ -3,5 +3,7 @@
     "path": "/",
     "title": "Home",
     "name": "home",
-    "status": "published"
+    "status": "published",
+    "body": [],
+    "campaignUuid": "campaign-uuid-two"
 }

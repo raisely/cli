@@ -21,19 +21,19 @@ export function compilePageBody(page) {
  * @param {{ campaignUuid?: string }} [opts] If campaignUuid is set, only pages belonging to that campaign are compiled.
  */
 export async function compileAllLocalPages({ campaignUuid } = {}) {
-	const pagesDir = path.join(process.cwd(), 'pages');
-	if (!fs.existsSync(pagesDir)) {
+	const campaignsDir = path.join(process.cwd(), 'campaigns');
+	if (!fs.existsSync(campaignsDir)) {
 		return {};
 	}
 
-	const files = await glob('**/*.json', {
-		cwd: pagesDir,
+	const files = await glob('campaigns/*/pages/**/*.json', {
+		cwd: process.cwd(),
 		nodir: true,
 	});
 
 	const map = {};
 	for (const file of files) {
-		const fullPath = path.join(pagesDir, file);
+		const fullPath = path.join(process.cwd(), file);
 		const raw = fs.readFileSync(fullPath, 'utf8');
 		let page;
 		try {

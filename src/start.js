@@ -45,16 +45,20 @@ export default async function start() {
 	log(`Use CTRL + C to stop`, 'white');
 
 	// watch folders
-	const stylesDir = path.join(process.cwd(), 'stylesheets');
+	const campaignsDir = path.join(process.cwd(), 'campaigns');
 	const componentsDir = path.join(process.cwd(), 'components');
 	watch(
-		stylesDir,
+		campaignsDir,
 		{ encoding: 'utf8', recursive: true },
 		async (eventType, filenameRaw) => {
-			const filename = path.relative(stylesDir, filenameRaw);
-			const loader = ora(`Saving ${filename}`).start();
+			const relative = path.relative(campaignsDir, filenameRaw);
+			const parts = relative.split(path.sep);
+			// Only handle stylesheet changes: <campaign-path>/stylesheets/...
+			if (parts.length < 3 || parts[1] !== 'stylesheets') return;
+			const campaignPath = parts[0];
+			const loader = ora(`Saving ${relative}`).start();
 
-			await uploadStyles(filename);
+			await uploadStyles(campaignPath);
 
 			loader.succeed();
 		}
