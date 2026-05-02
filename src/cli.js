@@ -24,6 +24,7 @@ const login = actionBuilder(() => import('./login.js'));
 const logout = actionBuilder(() => import('./logout.js'));
 const local = actionBuilder(() => import('./local.js'));
 const list = actionBuilder(() => import('./list.js'));
+const migrate = actionBuilder(() => import('./migrate.js'));
 
 export async function cli() {
 	const pkg = getPackageInfo();
@@ -100,6 +101,13 @@ export async function cli() {
 		.option('--json', 'Output as JSON (forces machine format)')
 		.option('--tsv', 'Output as tab-separated values (forces machine format)')
 		.action(list);
+
+	program
+		.command('migrate')
+		.description(
+			'Migrate an existing repo from the v1 layout to the v2 layout (one-shot, idempotent)'
+		)
+		.action(migrate);
 
 	// Make sure we show help after a bad command
 	program.showHelpAfterError();
