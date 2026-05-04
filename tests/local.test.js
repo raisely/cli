@@ -50,6 +50,14 @@ function createLogger() {
 	};
 }
 
+function hasLogMessage(entries, expectedMessage) {
+	return entries.some(
+		(entry) =>
+			typeof entry === 'string' &&
+			entry.includes(expectedMessage)
+	);
+}
+
 describe('local styles route', () => {
 	test('cold cache 4xx returns 502 with transpiler error as css comment', async () => {
 		const logs = createLogger();
@@ -157,7 +165,7 @@ describe('local styles route', () => {
 		assert.equal(thirdRes.statusCode, 200);
 		assert.equal(thirdRes.body, '.new { color: purple; }');
 		assert.equal(logs.warns.length, 1);
-		assert.equal(logs.errors.includes('Unauthorized'), true);
+		assert.equal(hasLogMessage(logs.errors, 'Unauthorized'), true);
 	});
 
 	test('5xx retries once after 500ms before falling back', async () => {
@@ -207,7 +215,7 @@ describe('local styles route', () => {
 		assert.equal(secondRes.body, '.baseline { color: black; }');
 		assert.equal(waitCalls, 1);
 		assert.equal(fetchCalls, 3);
-		assert.equal(logs.errors.includes('Still unavailable'), true);
+		assert.equal(hasLogMessage(logs.errors, 'Still unavailable'), true);
 		assert.equal(
 			logs.errors.some(
 				(entry) =>
