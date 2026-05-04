@@ -13,6 +13,11 @@ import {
 	informLocalDev,
 } from './helpers.js';
 import watch from 'node-watch';
+import {
+	detectLayout,
+	shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage,
+} from './actions/layout.js';
 
 import { uploadStyles } from './actions/campaigns.js';
 import {
@@ -23,6 +28,14 @@ import { getToken } from './actions/auth.js';
 import { loadConfig } from './config.js';
 
 export default async function start() {
+	const layout = detectLayout(process.cwd());
+	if (shouldRefuseLayoutForCommand('start', layout)) {
+		br();
+		log(getLegacyLayoutRefusalMessage('start', layout), 'red');
+		process.exitCode = 1;
+		return;
+	}
+
 	welcome();
 
 	// load config

@@ -4,10 +4,23 @@ import inquirer from 'inquirer';
 
 import { welcome, log, br, error, informUpdate } from './helpers.js';
 import { syncStyles, syncComponents, syncPages } from './actions/sync.js';
+import {
+	detectLayout,
+	shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage,
+} from './actions/layout.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
 
 export default async function update(options = {}) {
+	const layout = detectLayout(process.cwd());
+	if (shouldRefuseLayoutForCommand('update', layout)) {
+		br();
+		log(getLegacyLayoutRefusalMessage('update', layout), 'red');
+		process.exitCode = 1;
+		return;
+	}
+
 	// load config
 	let config = await loadConfig();
 

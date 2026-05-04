@@ -29,6 +29,11 @@ import {
 } from './actions/pages.js';
 import { getToken } from './actions/auth.js';
 import { loadConfig } from './config.js';
+import {
+	detectLayout,
+	shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage,
+} from './actions/layout.js';
 
 // local development config
 const PORT = 8015;
@@ -120,6 +125,14 @@ async function decodeProxyResponseBuffer(responseBuffer, proxyRes) {
 }
 
 export default async function start(options = {}) {
+	const layout = detectLayout(process.cwd());
+	if (shouldRefuseLayoutForCommand('local', layout)) {
+		br();
+		log(getLegacyLayoutRefusalMessage('local', layout), 'red');
+		process.exitCode = 1;
+		return;
+	}
+
 	welcome();
 
 	// load config
