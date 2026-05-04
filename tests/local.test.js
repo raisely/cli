@@ -207,6 +207,63 @@ describe('local styles route', () => {
 		assert.equal(secondRes.body, '.baseline { color: black; }');
 		assert.equal(waitCalls, 1);
 		assert.equal(fetchCalls, 3);
-		assert.equal(logs.errors.length > 0, true);
+		assert.equal(logs.errors.includes('Still unavailable'), true);
+		assert.equal(
+			logs.errors.some(
+				(entry) =>
+					typeof entry === 'string' &&
+					entry.includes('SASS transpiler failed after retry: 503')
+			),
+			true
+		);
+	});
+
+	test('network error then 5xx only retries once total', async () => {
+		const logs = createLogger();
+		let fetchCalls = 0;
+		let waitCalls = 0;
+		const firstError = new Error('socket hang up');
+		const queue = [
+			'throw',
+			makeTranspilerResponse({
+				status: 503,
+				body: 'Service unavailable',
+				statusText: 'Service Unavailable',
+			}),
+		];
+
+		const handler = createStylesRouteHandler({
+			campaignPath: 'my-campaign',
+			baseStyles: '',
+			token: 'token-123',
+			processStylesFn: async () => '.hero { color: red; }',
+			fetchFn: async () => {
+				fetchCalls += 1;
+				const next = queue.shift();
+				if (next === 'throw') {
+					throw firstError;
+				}
+				return next;
+			},
+			waitFn: async () => {
+				waitCalls += 1;
+			},
+			logs,
+		});
+
+		const res = makeResponseHarness();
+		await handler({}, res);
+
+		assert.equal(waitCalls, 1);
+		assert.equal(fetchCalls, 2);
+		assert.equal(res.statusCode, 502);
+		assert.equal(
+			logs.errors.some(
+				(entry) =>
+					typeof entry === 'string' &&
+					entry.includes('SASS transpiler failed after retry: 503')
+			),
+			true
+		);
 	});
 });
