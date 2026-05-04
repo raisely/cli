@@ -148,7 +148,7 @@ export function createStylesRouteHandler({
 
 	const transpileEndpoint = `${transpilerUrl.replace(/\/$/, '')}/transpile`;
 
-	async function sendFallback(res, errorText = '') {
+	function sendFallback(res, errorText = '') {
 		if (hasLastGoodCss(lastGoodCss)) {
 			res.send(lastGoodCss);
 			return;
@@ -175,6 +175,39 @@ export function createStylesRouteHandler({
 		return { response, bodyText };
 	}
 
+	async function transpileStylesWithSingleRetry(fullStyles) {
+		let firstError = null;
+		let firstResult = null;
+
+		try {
+			firstResult = await transpileStyles(fullStyles);
+		} catch (err) {
+			firstError = err;
+		}
+
+		const shouldRetry =
+			firstError !== null ||
+			(firstResult !== null && firstResult.response.status >= 500);
+
+		if (!shouldRetry) {
+			if (firstResult !== null) {
+				return firstResult;
+			}
+			throw firstError;
+		}
+
+		await waitFn(retryDelayMs);
+
+		try {
+			return await transpileStyles(fullStyles);
+		} catch (retryErr) {
+			if (firstError) {
+				logs.error(firstError);
+			}
+			throw retryErr;
+		}
+	}
+
 	return async function stylesRouteHandler(req, res) {
 		res.set('Content-Type', 'text/css');
 
@@ -183,23 +216,18 @@ export function createStylesRouteHandler({
 			styles = await processStylesFn({ campaign: campaignPath });
 		} catch (err) {
 			logs.error(err);
-			await sendFallback(res);
+			sendFallback(res);
 			return;
 		}
 
 		const fullStyles = baseStyles + styles;
 		let transpileResult;
 		try {
-			transpileResult = await transpileStyles(fullStyles);
+			transpileResult = await transpileStylesWithSingleRetry(fullStyles);
 		} catch (err) {
-			try {
-				await waitFn(retryDelayMs);
-				transpileResult = await transpileStyles(fullStyles);
-			} catch (retryErr) {
-				logs.error(retryErr);
-				await sendFallback(res);
-				return;
-			}
+			logs.error(err);
+			sendFallback(res);
+			return;
 		}
 
 		const { response, bodyText } = transpileResult;
@@ -208,41 +236,6 @@ export function createStylesRouteHandler({
 			lastGoodCss = bodyText;
 			res.send(bodyText);
 			return;
-		}
-
-		if (response.status >= 500) {
-			try {
-				await waitFn(retryDelayMs);
-				const retryResult = await transpileStyles(fullStyles);
-				if (retryResult.response.ok) {
-					lastGoodCss = retryResult.bodyText;
-					res.send(retryResult.bodyText);
-					return;
-				}
-
-				if (retryResult.response.status >= 400 && retryResult.response.status < 500) {
-					if (retryResult.response.status === 401) {
-						logs.warn(
-							'SASS transpiler returned 401; your token may be stale. Run `raisely login` if this keeps happening.'
-						);
-					}
-					if (retryResult.bodyText) {
-						logs.error(retryResult.bodyText);
-					}
-					await sendFallback(res, retryResult.bodyText);
-					return;
-				}
-
-				logs.error(
-					`SASS transpiler failed after retry: ${retryResult.response.status} ${retryResult.response.statusText}`
-				);
-				await sendFallback(res);
-				return;
-			} catch (retryErr) {
-				logs.error(retryErr);
-				await sendFallback(res);
-				return;
-			}
 		}
 
 		if (response.status >= 400 && response.status < 500) {
@@ -254,14 +247,17 @@ export function createStylesRouteHandler({
 			if (bodyText) {
 				logs.error(bodyText);
 			}
-			await sendFallback(res, bodyText);
+			sendFallback(res, bodyText);
 			return;
 		}
 
+		if (bodyText) {
+			logs.error(bodyText);
+		}
 		logs.error(
-			`SASS transpiler failed: ${response.status} ${response.statusText}`
+			`SASS transpiler failed after retry: ${response.status} ${response.statusText}`
 		);
-		await sendFallback(res);
+		sendFallback(res);
 	};
 }
 
