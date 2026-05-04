@@ -58,6 +58,16 @@ function hasLogMessage(entries, expectedMessage) {
 	);
 }
 
+function createDeferred() {
+	let resolve;
+	let reject;
+	const promise = new Promise((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
 describe('local styles route', () => {
 	test('cold cache 4xx returns 502 with transpiler error as css comment', async () => {
 		const logs = createLogger();
@@ -273,5 +283,62 @@ describe('local styles route', () => {
 			),
 			true
 		);
+	});
+
+	test('older in-flight success does not overwrite newer cached css', async () => {
+		const logs = createLogger();
+		const firstFetch = createDeferred();
+		const secondFetch = createDeferred();
+		let fetchCalls = 0;
+
+		const handler = createStylesRouteHandler({
+			campaignPath: 'my-campaign',
+			baseStyles: '',
+			token: 'token-123',
+			processStylesFn: async () => '.hero { color: red; }',
+			fetchFn: async () => {
+				fetchCalls += 1;
+				if (fetchCalls === 1) return firstFetch.promise;
+				if (fetchCalls === 2) return secondFetch.promise;
+				return makeTranspilerResponse({
+					status: 400,
+					body: 'SassError: broken',
+					statusText: 'Bad Request',
+				});
+			},
+			logs,
+		});
+
+		const firstRes = makeResponseHarness();
+		const secondRes = makeResponseHarness();
+
+		const firstRequest = handler({}, firstRes);
+		const secondRequest = handler({}, secondRes);
+
+		secondFetch.resolve(
+			makeTranspilerResponse({
+				status: 200,
+				body: '.newest { color: green; }',
+				statusText: 'OK',
+			})
+		);
+		firstFetch.resolve(
+			makeTranspilerResponse({
+				status: 200,
+				body: '.stale { color: red; }',
+				statusText: 'OK',
+			})
+		);
+
+		await Promise.all([firstRequest, secondRequest]);
+
+		assert.equal(secondRes.body, '.newest { color: green; }');
+		assert.equal(firstRes.body, '.stale { color: red; }');
+
+		const fallbackRes = makeResponseHarness();
+		await handler({}, fallbackRes);
+
+		assert.equal(fallbackRes.statusCode, 200);
+		assert.equal(fallbackRes.body, '.newest { color: green; }');
 	});
 });
