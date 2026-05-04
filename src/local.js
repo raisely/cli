@@ -27,6 +27,7 @@ import {
 	compileAllLocalPages,
 	buildPageOverrideScript,
 } from './actions/pages.js';
+import { sleep } from './actions/sleep.js';
 import { getToken } from './actions/auth.js';
 import { loadConfig } from './config.js';
 
@@ -129,10 +130,6 @@ function hasLastGoodCss(css) {
 	return typeof css === 'string' && css.length > 0;
 }
 
-function wait(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function createStylesRouteHandler({
 	campaignPath,
 	baseStyles,
@@ -141,7 +138,7 @@ export function createStylesRouteHandler({
 	fetchFn = fetch,
 	logs = console,
 	retryDelayMs = DEFAULT_TRANSPILE_RETRY_DELAY_MS,
-	waitFn = wait,
+	waitFn = sleep,
 	transpilerUrl = process.env.SASS_TRANSPILER_URL?.trim() || DEFAULT_SASS_TRANSPILER_URL,
 }) {
 	let lastGoodCss = '';
@@ -193,7 +190,9 @@ export function createStylesRouteHandler({
 			if (firstResult !== null) {
 				return firstResult;
 			}
-			throw firstError;
+			throw new Error(
+				'Unexpected transpile state: missing result and error before retry'
+			);
 		}
 
 		await waitFn(retryDelayMs);

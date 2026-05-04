@@ -7,6 +7,7 @@ import {
 	refreshCredentialsForCurrentContext,
 	NotAuthenticatedError,
 } from '../credentials.js';
+import { sleep } from './sleep.js';
 
 const devHttpsAgent = new https.Agent({
 	rejectUnauthorized: false,
@@ -16,10 +17,6 @@ function getResponseContentType(response) {
 	const rawResponseContentType = response.headers.get('Content-Type');
 	const [contentType] = rawResponseContentType.split(';');
 	return contentType;
-}
-
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default async function api(options) {
