@@ -142,6 +142,8 @@ export function createStylesRouteHandler({
 	transpilerUrl = process.env.SASS_TRANSPILER_URL?.trim() || DEFAULT_SASS_TRANSPILER_URL,
 }) {
 	let lastGoodCss = '';
+	let nextStylesRequestId = 0;
+	let lastAppliedStylesRequestId = 0;
 
 	const transpileEndpoint = `${transpilerUrl.replace(/\/$/, '')}/transpile`;
 
@@ -209,6 +211,7 @@ export function createStylesRouteHandler({
 
 	return async function stylesRouteHandler(req, res) {
 		res.set('Content-Type', 'text/css');
+		const stylesRequestId = ++nextStylesRequestId;
 
 		let styles;
 		try {
@@ -232,7 +235,10 @@ export function createStylesRouteHandler({
 		const { response, bodyText } = transpileResult;
 
 		if (response.ok) {
-			lastGoodCss = bodyText;
+			if (stylesRequestId >= lastAppliedStylesRequestId) {
+				lastGoodCss = bodyText;
+				lastAppliedStylesRequestId = stylesRequestId;
+			}
 			res.send(bodyText);
 			return;
 		}
