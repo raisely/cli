@@ -1,4 +1,4 @@
-import { program } from 'commander';
+import { InvalidArgumentError, program } from 'commander';
 import { getPackageInfo } from './helpers.js';
 
 /**
@@ -12,6 +12,14 @@ function actionBuilder(moduleLoader) {
 		const { default: commandContext } = await moduleLoader();
 		await commandContext(...args);
 	};
+}
+
+function parsePort(value) {
+	const port = Number(value);
+	if (!Number.isInteger(port) || port < 1 || port > 65535) {
+		throw new InvalidArgumentError('Port must be an integer between 1 and 65535');
+	}
+	return port;
 }
 
 // define actions
@@ -92,6 +100,7 @@ export async function cli() {
 			'--uuid <uuid>',
 			'Open a specific campaign by UUID (skips the campaign picker)'
 		)
+		.option('--port <port>', 'Override the local server port', parsePort, 8015)
 		.option('--no-open', 'Do not open a browser window')
 		.action(local);
 

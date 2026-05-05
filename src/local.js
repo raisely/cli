@@ -36,7 +36,7 @@ import {
 } from './actions/layout.js';
 
 // local development config
-const PORT = 8015;
+const DEFAULT_PORT = 8015;
 const DEFAULT_API_URL = 'https://api.raisely.com';
 
 /**
@@ -44,7 +44,7 @@ const DEFAULT_API_URL = 'https://api.raisely.com';
  * rewrites browser API calls from https://api.raisely.com to config.apiUrl.
  *
  * The campaign's frontend bundle picks its API host from window.location.hostname,
- * so when it's loaded over http://localhost:8015 it falls through to api.raisely.com.
+ * so when it's loaded over localhost it falls through to api.raisely.com.
  * Patching fetch/XHR sidesteps that resolver without changing the bundle.
  *
  * Returns an empty string when apiUrl is the production default, so prod/staging
@@ -134,6 +134,7 @@ export default async function start(options = {}) {
 	}
 
 	welcome();
+	const port = options.port || DEFAULT_PORT;
 
 	// load config
 	const config = await loadConfig();
@@ -305,7 +306,7 @@ export default async function start(options = {}) {
 					// embeds api.raisely.com, api.raisely.test:2999, or any other host.
 					const stylesPath = `/v3/campaigns/${campaignUuid}/styles.css`;
 					const componentsPath = `/v3/campaigns/${campaignUuid}/components.js`;
-					const localBase = `http://localhost:${PORT}`;
+					const localBase = `http://localhost:${port}`;
 					const upstreamUrlRe = (path) =>
 						new RegExp(
 							`https?://[^"'\\s)]+${path.replace(/[/.]/g, '\\$&')}`,
@@ -380,7 +381,7 @@ export default async function start(options = {}) {
 		})
 	);
 
-	app.listen(PORT);
+	app.listen(port);
 
 	log(`Local development for ${target} has been set up in:`, 'white');
 	br();
@@ -396,12 +397,12 @@ export default async function start(options = {}) {
 	} else {
 		log(`Your development site:`, 'white');
 	}
-	log(`http://localhost:${PORT}`, 'white');
+	log(`http://localhost:${port}`, 'white');
 	br();
 	log(`Use CTRL + C to stop`, 'white');
 
 	if (options.open) {
-		open(`http://localhost:${PORT}`, {
+		open(`http://localhost:${port}`, {
 			background: true,
 		});
 	}
