@@ -39,6 +39,7 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 -   `raisely deploy` - deploy your local code to Raisely (styles, components, and pages)
 -   `raisely local` - work locally on a Raisely campaign without syncing changes up (includes local page JSON overrides when `pages/` is present)
 -   `raisely local --uuid <uuid>` - open a specific campaign by UUID, skipping the picker
+-   `raisely local --port <port>` - run the local development server on a custom port instead of `8015`
 
 ### Custom public host (`raisely local`)
 
