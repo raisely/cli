@@ -27,6 +27,7 @@ import {
 	compileAllLocalPages,
 	buildPageOverrideScript,
 } from './actions/pages.js';
+import { sleep } from './actions/sleep.js';
 import { getToken } from './actions/auth.js';
 import { loadConfig } from './config.js';
 import {
@@ -38,6 +39,8 @@ import {
 // local development config
 const DEFAULT_PORT = 8015;
 const DEFAULT_API_URL = 'https://api.raisely.com';
+const DEFAULT_SASS_TRANSPILER_URL = 'https://sass-transpiler.raisely.com';
+const DEFAULT_TRANSPILE_RETRY_DELAY_MS = 500;
 
 /**
  * Build a small script that, only when the user has opted into a non-prod API,
@@ -122,6 +125,150 @@ async function decodeProxyResponseBuffer(responseBuffer, proxyRes) {
 		// Middleware may have already decompressed while leaving a stale encoding header.
 	}
 	return responseBuffer.toString('utf8');
+}
+
+function buildCssErrorComment(errorMessage) {
+	return `/*\n${errorMessage}\n*/`;
+}
+
+function hasLastGoodCss(css) {
+	return typeof css === 'string' && css.length > 0;
+}
+
+export function createStylesRouteHandler({
+	campaignPath,
+	baseStyles,
+	token,
+	processStylesFn = processStyles,
+	fetchFn = fetch,
+	logs = console,
+	retryDelayMs = DEFAULT_TRANSPILE_RETRY_DELAY_MS,
+	waitFn = sleep,
+	transpilerUrl = process.env.SASS_TRANSPILER_URL?.trim() || DEFAULT_SASS_TRANSPILER_URL,
+}) {
+	let lastGoodCss = '';
+	let nextStylesRequestId = 0;
+	let lastAppliedStylesRequestId = 0;
+
+	const transpileEndpoint = `${transpilerUrl.replace(/\/$/, '')}/transpile`;
+
+	function sendFallback(res, errorText = '') {
+		if (hasLastGoodCss(lastGoodCss)) {
+			res.send(lastGoodCss);
+			return;
+		}
+
+		if (errorText) {
+			res.status(502).send(buildCssErrorComment(errorText));
+			return;
+		}
+
+		res.sendStatus(502);
+	}
+
+	async function transpileStyles(fullStyles) {
+		const response = await fetchFn(transpileEndpoint, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/scss',
+				Authorization: `Bearer ${token}`,
+			},
+			body: fullStyles,
+		});
+		const bodyText = await response.text();
+		return { response, bodyText };
+	}
+
+	async function transpileStylesWithSingleRetry(fullStyles) {
+		let firstError = null;
+		let firstResult = null;
+
+		try {
+			firstResult = await transpileStyles(fullStyles);
+		} catch (err) {
+			firstError = err;
+		}
+
+		const shouldRetry =
+			firstError !== null ||
+			(firstResult !== null && firstResult.response.status >= 500);
+
+		if (!shouldRetry) {
+			if (firstResult !== null) {
+				return firstResult;
+			}
+			throw new Error(
+				'Unexpected transpile state: missing result and error before retry'
+			);
+		}
+
+		await waitFn(retryDelayMs);
+
+		try {
+			return await transpileStyles(fullStyles);
+		} catch (retryErr) {
+			if (firstError) {
+				logs.error(firstError);
+			}
+			throw retryErr;
+		}
+	}
+
+	return async function stylesRouteHandler(req, res) {
+		res.set('Content-Type', 'text/css');
+		const stylesRequestId = ++nextStylesRequestId;
+
+		let styles;
+		try {
+			styles = await processStylesFn({ campaign: campaignPath });
+		} catch (err) {
+			logs.error(err);
+			sendFallback(res);
+			return;
+		}
+
+		const fullStyles = baseStyles + styles;
+		let transpileResult;
+		try {
+			transpileResult = await transpileStylesWithSingleRetry(fullStyles);
+		} catch (err) {
+			logs.error(err);
+			sendFallback(res);
+			return;
+		}
+
+		const { response, bodyText } = transpileResult;
+
+		if (response.ok) {
+			if (stylesRequestId >= lastAppliedStylesRequestId) {
+				lastGoodCss = bodyText;
+				lastAppliedStylesRequestId = stylesRequestId;
+			}
+			res.send(bodyText);
+			return;
+		}
+
+		if (response.status >= 400 && response.status < 500) {
+			if (response.status === 401) {
+				logs.warn(
+					'SASS transpiler returned 401; your token may be stale. Run `raisely login` if this keeps happening.'
+				);
+			}
+			if (bodyText) {
+				logs.error(bodyText);
+			}
+			sendFallback(res, bodyText);
+			return;
+		}
+
+		if (bodyText) {
+			logs.error(bodyText);
+		}
+		logs.error(
+			`SASS transpiler failed after retry: ${response.status} ${response.statusText}`
+		);
+		sendFallback(res);
+	};
 }
 
 export default async function start(options = {}) {
@@ -214,51 +361,14 @@ export default async function start(options = {}) {
 	});
 
 	// locally compile css files
-	app.use(`/v3/campaigns/${campaignUuid}/styles.css`, async (req, res) => {
-		res.set('Content-Type', 'text/css');
-
-		try {
-			const transpilerUrl =
-				process.env.SASS_TRANSPILER_URL?.trim() ||
-				'https://sass-transpiler.raisely.com';
-
-			const styles = await processStyles({
-				campaign: campaignPath,
-			});
-
-			const response = await fetch(
-				`${transpilerUrl.replace(/\/$/, '')}/transpile`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/scss',
-						Authorization: `Bearer ${config.token}`,
-					},
-					body: base + styles,
-				}
-			);
-
-			if (response.status === 401) {
-				console.error(
-					'SASS transpiler returned 401: token rejected when validating against the API.'
-				);
-				res.sendStatus(401);
-				process.exit(1);
-			}
-			if (!response.ok) {
-				console.error(
-					`SASS transpiler failed: ${response.status} ${response.statusText}`
-				);
-				return res.sendStatus(502);
-			}
-
-			const css = await response.text();
-			res.send(css);
-		} catch (e) {
-			console.error(e);
-			res.sendStatus(500);
-		}
-	});
+	app.use(
+		`/v3/campaigns/${campaignUuid}/styles.css`,
+		createStylesRouteHandler({
+			campaignPath,
+			baseStyles: base,
+			token: config.token,
+		})
+	);
 
 	// locally compile components
 	app.use(`/v3/campaigns/${campaignUuid}/components.js`, async (req, res) => {
