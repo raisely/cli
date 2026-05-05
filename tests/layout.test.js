@@ -4,7 +4,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveCampaignPaths, detectLayout } from '../src/actions/layout.js';
+import {
+	resolveCampaignPaths,
+	detectLayout,
+	shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage,
+} from '../src/actions/layout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, 'fixtures');
@@ -139,4 +144,40 @@ test('resolveCampaignPaths returns independent paths for each campaign in a mult
 	assert.ok(two.pagesDir.includes('campaign-two'));
 	assert.notEqual(one.pagesDir, two.pagesDir);
 	assert.notEqual(one.mainScss, two.mainScss);
+});
+
+// ---------------------------------------------------------------------------
+// legacy-layout refusal helpers
+// ---------------------------------------------------------------------------
+
+test('refusing commands block legacy and mixed layouts', () => {
+	const refusingCommands = ['update', 'deploy', 'local', 'start'];
+	for (const command of refusingCommands) {
+		assert.equal(shouldRefuseLayoutForCommand(command, 'legacy'), true);
+		assert.equal(shouldRefuseLayoutForCommand(command, 'mixed'), true);
+		assert.equal(shouldRefuseLayoutForCommand(command, 'v2'), false);
+		assert.equal(shouldRefuseLayoutForCommand(command, 'empty'), false);
+	}
+});
+
+test('unaffected commands do not block on legacy layouts', () => {
+	const unaffectedCommands = [
+		'init',
+		'list',
+		'create',
+		'login',
+		'logout',
+		'migrate',
+	];
+	for (const command of unaffectedCommands) {
+		assert.equal(shouldRefuseLayoutForCommand(command, 'legacy'), false);
+		assert.equal(shouldRefuseLayoutForCommand(command, 'mixed'), false);
+	}
+});
+
+test('refusal message includes both v2 install and migrate steps', () => {
+	const msg = getLegacyLayoutRefusalMessage('update', 'legacy');
+	assert.match(msg, /raisely update/);
+	assert.match(msg, /npm install -g @raisely\/cli@2/);
+	assert.match(msg, /raisely migrate/);
 });

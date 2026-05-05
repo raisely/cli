@@ -10,6 +10,11 @@ import glob from 'glob-promise';
 import { welcome, log, br, informUpdate } from './helpers.js';
 import { uploadStyles, getCampaign } from './actions/campaigns.js';
 import {
+	detectLayout,
+	shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage,
+} from './actions/layout.js';
+import {
 	updateComponentFile,
 	updateComponentConfig,
 } from './actions/components.js';
@@ -18,6 +23,14 @@ import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
 
 export default async function deploy(options = {}) {
+	const layout = detectLayout(process.cwd());
+	if (shouldRefuseLayoutForCommand('deploy', layout)) {
+		br();
+		log(getLegacyLayoutRefusalMessage('deploy', layout), 'red');
+		process.exitCode = 1;
+		return;
+	}
+
 	// load config
 	let config = await loadConfig();
 	await getToken(program, config);

@@ -41,6 +41,37 @@ export function detectLayout(repoRoot) {
 	return 'empty';
 }
 
+const REFUSING_LAYOUT_COMMANDS = new Set(['update', 'deploy', 'local', 'start']);
+
+/**
+ * Returns true when a command should refuse to run for this layout classification.
+ *
+ * @param {string} commandName
+ * @param {'legacy' | 'v2' | 'mixed' | 'empty'} layout
+ * @returns {boolean}
+ */
+export function shouldRefuseLayoutForCommand(commandName, layout) {
+	if (!REFUSING_LAYOUT_COMMANDS.has(commandName)) return false;
+	return layout === 'legacy' || layout === 'mixed';
+}
+
+/**
+ * Build a clear refusal message that points users to the v2 install + migration path.
+ *
+ * @param {string} commandName
+ * @param {'legacy' | 'v2' | 'mixed' | 'empty'} layout
+ * @returns {string}
+ */
+export function getLegacyLayoutRefusalMessage(commandName, layout) {
+	const layoutLabel = layout === 'mixed' ? 'mixed legacy + v2' : 'legacy';
+	return [
+		`Cannot run \`raisely ${commandName}\` with a ${layoutLabel} project layout.`,
+		'This command requires the v2 layout under `campaigns/<campaign-path>/`.',
+		'Install v2: npm install -g @raisely/cli@2',
+		'Migrate this repo: raisely migrate',
+	].join('\n');
+}
+
 function isDir(p) {
 	try {
 		return fs.statSync(p).isDirectory();
