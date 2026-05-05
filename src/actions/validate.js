@@ -15,8 +15,28 @@ const AUTH_FAILURE_ERROR = 'Authentication failed; run `raisely login`.';
 function resolveTranspilerUrl(raw) {
 	const fromEnv = raw?.trim();
 	if (!fromEnv) return DEFAULT_TRANSPILER_URL;
-	if (fromEnv.endsWith('/transpile')) return fromEnv;
-	return `${fromEnv.replace(/\/$/, '')}/transpile`;
+
+	try {
+		const parsed = new URL(fromEnv);
+		const normalizedPath = parsed.pathname
+			.replace(/\/{2,}/g, '/')
+			.replace(/\/+$/, '');
+
+		if (normalizedPath.endsWith('/transpile')) {
+			parsed.pathname = normalizedPath;
+			return parsed.toString();
+		}
+
+		parsed.pathname =
+			normalizedPath === '' || normalizedPath === '/'
+				? '/transpile'
+				: `${normalizedPath}/transpile`;
+		return parsed.toString();
+	} catch {
+		const normalized = fromEnv.replace(/\/+$/, '');
+		if (normalized.endsWith('/transpile')) return normalized;
+		return `${normalized}/transpile`;
+	}
 }
 
 function toErrorMessage(error, fallback) {
@@ -32,6 +52,10 @@ function readResponseError(response, body) {
 	const text = typeof body === 'string' ? body.trim() : '';
 	if (text) return text;
 	return `${response.status} ${response.statusText}`.trim();
+}
+
+function hasUsableToken(token) {
+	return typeof token === 'string' && token.trim().length > 0;
 }
 
 async function resolveCampaignContext(campaign, deps) {
@@ -122,9 +146,12 @@ export async function validateCampaignSass(
 		const payload = `${baseStyles}${styles}`;
 
 		let activeToken = token;
-		if (!activeToken) {
+		if (!hasUsableToken(activeToken)) {
 			const creds = await deps.getCredentialsFn({ allowPrompt: false });
 			activeToken = creds.token;
+		}
+		if (!hasUsableToken(activeToken)) {
+			return { ok: false, error: AUTH_FAILURE_ERROR };
 		}
 
 		try {
@@ -156,6 +183,9 @@ export async function validateCampaignSass(
 			const refreshed = await deps.getCredentialsFn({ allowPrompt: false });
 			activeToken = refreshed.token;
 		} catch {
+			return { ok: false, error: AUTH_FAILURE_ERROR };
+		}
+		if (!hasUsableToken(activeToken)) {
 			return { ok: false, error: AUTH_FAILURE_ERROR };
 		}
 

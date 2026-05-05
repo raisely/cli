@@ -137,6 +137,74 @@ describe('validateCampaignSass', () => {
 			error: 'socket hang up',
 		});
 	});
+
+	test('returns auth-failure when credentials have no token', async () => {
+		let called = false;
+		const result = await validateCampaignSass(
+			{
+				campaign: { uuid: 'campaign-uuid', path: 'my-campaign' },
+			},
+			{
+				getBaseStylesFn: async () => '.base{}',
+				processStylesFn: async () => '.local{}',
+				getCredentialsFn: async () => ({}),
+				fetchImpl: async () => {
+					called = true;
+					return response(200, '.compiled{}');
+				},
+			}
+		);
+
+		assert.deepEqual(result, {
+			ok: false,
+			error: 'Authentication failed; run `raisely login`.',
+		});
+		assert.equal(called, false);
+	});
+
+	test('normalizes transpiler URL with trailing slash after transpile', async () => {
+		let calledUrl = null;
+		const result = await validateCampaignSass(
+			{
+				campaign: { uuid: 'campaign-uuid', path: 'my-campaign' },
+				token: 'token-1',
+			},
+			{
+				transpilerUrl: 'https://sass.example.com/transpile/',
+				getBaseStylesFn: async () => '.base{}',
+				processStylesFn: async () => '.local{}',
+				fetchImpl: async (url) => {
+					calledUrl = url;
+					return response(200, '.compiled{}');
+				},
+			}
+		);
+
+		assert.deepEqual(result, { ok: true });
+		assert.equal(calledUrl, 'https://sass.example.com/transpile');
+	});
+
+	test('normalizes duplicate slashes before transpile path', async () => {
+		let calledUrl = null;
+		const result = await validateCampaignSass(
+			{
+				campaign: { uuid: 'campaign-uuid', path: 'my-campaign' },
+				token: 'token-1',
+			},
+			{
+				transpilerUrl: 'https://sass.example.com//transpile',
+				getBaseStylesFn: async () => '.base{}',
+				processStylesFn: async () => '.local{}',
+				fetchImpl: async (url) => {
+					calledUrl = url;
+					return response(200, '.compiled{}');
+				},
+			}
+		);
+
+		assert.deepEqual(result, { ok: true });
+		assert.equal(calledUrl, 'https://sass.example.com/transpile');
+	});
 });
 
 describe('validateComponent', () => {
