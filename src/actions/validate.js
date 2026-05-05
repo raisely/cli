@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 
 import api from './api.js';
+import { loadBabelCore } from './babel.js';
 import { getBaseStyles, processStyles } from './campaigns.js';
 import {
 	getCredentials,
@@ -10,31 +11,6 @@ import {
 
 const DEFAULT_TRANSPILER_URL = 'https://sass-transpiler.raisely.com/transpile';
 const AUTH_FAILURE_ERROR = 'Authentication failed; run `raisely login`.';
-
-let BabelAlreadyLoaded = false;
-
-async function loadBabelCore() {
-	const [
-		{ default: Babel },
-		{ default: presetEnv },
-		{ default: presetReact },
-		{ default: classProps },
-	] = await Promise.all([
-		import('@babel/core'),
-		import('@babel/preset-env'),
-		import('@babel/preset-react'),
-		import('@babel/plugin-proposal-class-properties'),
-	]);
-
-	if (!BabelAlreadyLoaded) {
-		Babel.createConfigItem(presetEnv);
-		Babel.createConfigItem(presetReact);
-		Babel.createConfigItem(classProps);
-		BabelAlreadyLoaded = true;
-	}
-
-	return { Babel, presetEnv, presetReact, classProps };
-}
 
 function resolveTranspilerUrl(raw) {
 	const fromEnv = raw?.trim();
