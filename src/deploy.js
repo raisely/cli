@@ -21,35 +21,139 @@ import {
 import { uploadPage } from './actions/pages.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
+import {
+	validateCampaignSass,
+	validateComponent,
+} from './actions/validate.js';
 
-export default async function deploy(options = {}) {
-	const layout = detectLayout(process.cwd());
+function createDeployDependencies(overrides = {}) {
+	return {
+		loadConfigFn: overrides.loadConfigFn || loadConfig,
+		getTokenFn: overrides.getTokenFn || getToken,
+		getCampaignFn: overrides.getCampaignFn || getCampaign,
+		uploadStylesFn: overrides.uploadStylesFn || uploadStyles,
+		updateComponentConfigFn:
+			overrides.updateComponentConfigFn || updateComponentConfig,
+		updateComponentFileFn: overrides.updateComponentFileFn || updateComponentFile,
+		uploadPageFn: overrides.uploadPageFn || uploadPage,
+		validateCampaignSassFn:
+			overrides.validateCampaignSassFn || validateCampaignSass,
+		validateComponentFn: overrides.validateComponentFn || validateComponent,
+		globFn: overrides.globFn || glob,
+		fsModule: overrides.fsModule || fs,
+		pathModule: overrides.pathModule || path,
+		logFn: overrides.logFn || log,
+		brFn: overrides.brFn || br,
+		welcomeFn: overrides.welcomeFn || welcome,
+		informUpdateFn: overrides.informUpdateFn || informUpdate,
+		loaderFactory: overrides.loaderFactory || ora,
+		consoleRef: overrides.consoleRef || console,
+		cwd: overrides.cwd || process.cwd,
+		setExitCode:
+			overrides.setExitCode ||
+			((code) => {
+				process.exitCode = code;
+			}),
+	};
+}
+
+function formatValidationErrors(errors) {
+	return errors.map(({ context, error }) => `${context}: ${error}`);
+}
+
+function getComponentNames({ fsModule, pathModule, cwd }) {
+	const componentsDir = pathModule.join(cwd(), 'components');
+	if (!fsModule.existsSync(componentsDir)) {
+		return [];
+	}
+
+	return fsModule
+		.readdirSync(componentsDir, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name);
+}
+
+async function runPreflightValidation({ config }, dependencies) {
+	const deps = createDeployDependencies(dependencies);
+	const loader = deps.loaderFactory('Validating campaigns and components').start();
+	const campaigns = await Promise.all(
+		config.campaigns.map(async (campaignUuid) => {
+			const campaign = await deps.getCampaignFn({ uuid: campaignUuid });
+			return {
+				uuid: campaign.data.uuid,
+				path: campaign.data.path,
+			};
+		})
+	);
+	const componentNames = getComponentNames(deps);
+
+	const validationTasks = [
+		...campaigns.map(async (campaign) => {
+			const result = await deps.validateCampaignSassFn({
+				campaign,
+				token: config.token,
+			});
+			return {
+				ok: result.ok,
+				context: `Campaign ${campaign.path}`,
+				error: result.error,
+			};
+		}),
+		...componentNames.map(async (name) => {
+			const result = await deps.validateComponentFn({ name });
+			return {
+				ok: result.ok,
+				context: `Component ${name}`,
+				error: result.error,
+			};
+		}),
+	];
+
+	const results = await Promise.all(validationTasks);
+	const failed = results.filter((result) => !result.ok);
+
+	if (failed.length > 0) {
+		loader.fail('Deploy validation failed');
+		formatValidationErrors(failed).forEach((message) => {
+			deps.logFn(message, 'red');
+		});
+		return false;
+	}
+
+	loader.succeed('Validation passed');
+	return true;
+}
+
+export default async function deploy(options = {}, dependencies = {}) {
+	const deps = createDeployDependencies(dependencies);
+	const cwd = deps.cwd();
+	const layout = detectLayout(cwd);
 	if (shouldRefuseLayoutForCommand('deploy', layout)) {
-		br();
-		log(getLegacyLayoutRefusalMessage('deploy', layout), 'red');
-		process.exitCode = 1;
+		deps.brFn();
+		deps.logFn(getLegacyLayoutRefusalMessage('deploy', layout), 'red');
+		deps.setExitCode(1);
 		return;
 	}
 
 	// load config
-	let config = await loadConfig();
-	await getToken(program, config);
+	let config = await deps.loadConfigFn();
+	config.token = await deps.getTokenFn(program, config);
 
-	welcome();
-	log(`You are about to deploy your local directly to Raisely`, 'white');
-	br();
-	console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
-	br();
+	deps.welcomeFn();
+	deps.logFn(`You are about to deploy your local directly to Raisely`, 'white');
+	deps.brFn();
+	deps.consoleRef.log(`    ${chalk.inverse(`${cwd}`)}`);
+	deps.brFn();
 	if (config.apiUrl) {
-		br();
-		console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
-		br();
+		deps.brFn();
+		deps.consoleRef.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
+		deps.brFn();
 	}
-	log(
+	deps.logFn(
 		`You will overwrite the styles, components, and pages in your campaign.`,
 		'white'
 	);
-	br();
+	deps.brFn();
 
 	if (!config.cli && !options.force) {
 		const response = await inquirer.prompt([
@@ -61,23 +165,35 @@ export default async function deploy(options = {}) {
 		]);
 
 		if (!response.confirm) {
-			br();
-			return log('Deploy aborted', 'red');
+			deps.brFn();
+			return deps.logFn('Deploy aborted', 'red');
 		}
+	}
+
+	if (options.validate !== false) {
+		const validationPassed = await runPreflightValidation({ config }, deps);
+		if (!validationPassed) {
+			deps.brFn();
+			deps.setExitCode(1);
+			return;
+		}
+	} else {
+		deps.logFn('Skipping validation due to --no-validate flag.', 'yellow');
 	}
 
 	// upload campaign stylesheets
 	for (const campaignUuid of config.campaigns) {
-		const loader = ora(`Uploading styles for ${campaignUuid}`).start();
+		const loader = deps.loaderFactory(`Uploading styles for ${campaignUuid}`).start();
 
-		const campaign = await getCampaign({ uuid: campaignUuid });
+		const campaign = await deps.getCampaignFn({ uuid: campaignUuid });
 
 		try {
-			await uploadStyles(campaign.data.path);
+			await deps.uploadStylesFn(campaign.data.path);
 		} catch (e) {
-			br();
-			console.error(e);
-			process.exit(1);
+			deps.brFn();
+			deps.consoleRef.error(e);
+			deps.setExitCode(1);
+			return;
 		}
 
 		loader.succeed();
@@ -87,27 +203,27 @@ export default async function deploy(options = {}) {
 	const limit = pLimit(5);
 	const components = [];
 
-	const componentsDir = path.join(process.cwd(), 'components');
-	for (const file of fs.readdirSync(componentsDir)) {
+	const componentsDir = deps.pathModule.join(cwd, 'components');
+	for (const file of deps.fsModule.readdirSync(componentsDir)) {
 		const data = {
-			file: fs.readFileSync(
-				path.join(componentsDir, file, `${file}.js`),
+			file: deps.fsModule.readFileSync(
+				deps.pathModule.join(componentsDir, file, `${file}.js`),
 				'utf8'
 			),
 			config: JSON.parse(
-				fs.readFileSync(
-					path.join(componentsDir, file, `${file}.json`),
+				deps.fsModule.readFileSync(
+					deps.pathModule.join(componentsDir, file, `${file}.json`),
 					'utf8'
 				)
 			),
 		};
 
-		components.push(limit(() => updateComponentConfig(data)));
-		components.push(limit(() => updateComponentFile(data)));
+		components.push(limit(() => deps.updateComponentConfigFn(data)));
+		components.push(limit(() => deps.updateComponentFileFn(data)));
 	}
 
 	// Start loading all the components
-	const loader = ora(`Uploading components`).start();
+	const loader = deps.loaderFactory(`Uploading components`).start();
 	const deployResult = await Promise.allSettled(components);
 
 	const rejected = deployResult
@@ -117,21 +233,21 @@ export default async function deploy(options = {}) {
 	if (rejected.length > 0) {
 		loader.warn('The following errors occured while uploading components:');
 		rejected.forEach((error) => {
-			log(error, 'red');
+			deps.logFn(error, 'red');
 		});
 	} else {
 		loader.succeed();
 	}
 
 	// upload pages
-	const pageFiles = await glob('campaigns/*/pages/**/*.json', {
-		cwd: process.cwd(),
+	const pageFiles = await deps.globFn('campaigns/*/pages/**/*.json', {
+		cwd,
 	});
 
 	const pageTasks = [];
 	for (const file of pageFiles) {
-		const fullPath = path.join(process.cwd(), file);
-		const pageData = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+		const fullPath = deps.pathModule.join(cwd, file);
+		const pageData = JSON.parse(deps.fsModule.readFileSync(fullPath, 'utf8'));
 		if (!pageData.uuid) {
 			continue;
 		}
@@ -141,12 +257,12 @@ export default async function deploy(options = {}) {
 		) {
 			continue;
 		}
-		pageTasks.push(limit(() => uploadPage(pageData)));
+		pageTasks.push(limit(() => deps.uploadPageFn(pageData)));
 	}
 
 	let pageRejected = [];
 	if (pageTasks.length > 0) {
-		const pageLoader = ora(`Uploading pages`).start();
+		const pageLoader = deps.loaderFactory(`Uploading pages`).start();
 		const pageResults = await Promise.allSettled(pageTasks);
 
 		pageRejected = pageResults
@@ -158,7 +274,7 @@ export default async function deploy(options = {}) {
 				'The following errors occured while uploading pages:'
 			);
 			pageRejected.forEach((err) => {
-				log(err, 'red');
+				deps.logFn(err, 'red');
 			});
 		} else {
 			pageLoader.succeed();
@@ -166,8 +282,8 @@ export default async function deploy(options = {}) {
 	}
 
 	if (rejected.length === 0 && pageRejected.length === 0) {
-		await informUpdate();
+		await deps.informUpdateFn();
 	}
-	br();
-	log(`All done!`, 'green');
+	deps.brFn();
+	deps.logFn(`All done!`, 'green');
 }

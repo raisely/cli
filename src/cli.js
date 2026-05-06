@@ -64,6 +64,10 @@ export async function cli() {
 			'Synchronise (push) a remote Raisely campaign with the files on this machine'
 		)
 		.option(
+			'--no-validate',
+			'Skip pre-flight SCSS/component validation before upload'
+		)
+		.option(
 			'-f, --force',
 			'Deploy without asking for confirmation (non-interactive)'
 		)
