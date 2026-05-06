@@ -61,6 +61,23 @@ function formatValidationErrors(errors) {
 	return errors.map(({ context, error }) => `${context}: ${error}`);
 }
 
+function normalizeValidationResult(result, fallbackError) {
+	if (result && typeof result === 'object' && typeof result.ok === 'boolean') {
+		return {
+			ok: result.ok,
+			error:
+				typeof result.error === 'string' && result.error.trim()
+					? result.error
+					: fallbackError,
+		};
+	}
+
+	return {
+		ok: false,
+		error: fallbackError,
+	};
+}
+
 function getComponentNames({ fsModule, pathModule, cwd }) {
 	const componentsDir = pathModule.join(cwd(), 'components');
 	if (!fsModule.existsSync(componentsDir)) {
@@ -89,10 +106,14 @@ async function runPreflightValidation({ config }, dependencies) {
 
 	const validationTasks = [
 		...campaigns.map(async (campaign) => {
-			const result = await deps.validateCampaignSassFn({
+			const rawResult = await deps.validateCampaignSassFn({
 				campaign,
 				token: config.token,
 			});
+			const result = normalizeValidationResult(
+				rawResult,
+				'SASS validator returned an invalid response.'
+			);
 			return {
 				ok: result.ok,
 				context: `Campaign ${campaign.path}`,
@@ -100,7 +121,11 @@ async function runPreflightValidation({ config }, dependencies) {
 			};
 		}),
 		...componentNames.map(async (name) => {
-			const result = await deps.validateComponentFn({ name });
+			const rawResult = await deps.validateComponentFn({ name });
+			const result = normalizeValidationResult(
+				rawResult,
+				'Component validator returned an invalid response.'
+			);
 			return {
 				ok: result.ok,
 				context: `Component ${name}`,
@@ -190,6 +215,7 @@ export default async function deploy(options = {}, dependencies = {}) {
 		try {
 			await deps.uploadStylesFn(campaign.data.path);
 		} catch (e) {
+			loader.fail(`Failed to upload styles for ${campaignUuid}`);
 			deps.brFn();
 			deps.consoleRef.error(e);
 			deps.setExitCode(1);
