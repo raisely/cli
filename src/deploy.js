@@ -92,6 +92,7 @@ function getComponentNames({ fsModule, pathModule, cwd }) {
 
 async function runPreflightValidation({ config }, dependencies) {
 	const deps = createDeployDependencies(dependencies);
+	const validationLimit = pLimit(4);
 	const loader = deps.loaderFactory('Validating campaigns and components').start();
 	const campaigns = await Promise.all(
 		config.campaigns.map(async (campaignUuid) => {
@@ -105,33 +106,37 @@ async function runPreflightValidation({ config }, dependencies) {
 	const componentNames = getComponentNames(deps);
 
 	const validationTasks = [
-		...campaigns.map(async (campaign) => {
-			const rawResult = await deps.validateCampaignSassFn({
-				campaign,
-				token: config.token,
-			});
-			const result = normalizeValidationResult(
-				rawResult,
-				'SASS validator returned an invalid response.'
-			);
-			return {
-				ok: result.ok,
-				context: `Campaign ${campaign.path}`,
-				error: result.error,
-			};
-		}),
-		...componentNames.map(async (name) => {
-			const rawResult = await deps.validateComponentFn({ name });
-			const result = normalizeValidationResult(
-				rawResult,
-				'Component validator returned an invalid response.'
-			);
-			return {
-				ok: result.ok,
-				context: `Component ${name}`,
-				error: result.error,
-			};
-		}),
+		...campaigns.map((campaign) =>
+			validationLimit(async () => {
+				const rawResult = await deps.validateCampaignSassFn({
+					campaign,
+					token: config.token,
+				});
+				const result = normalizeValidationResult(
+					rawResult,
+					'SASS validator returned an invalid response.'
+				);
+				return {
+					ok: result.ok,
+					context: `Campaign ${campaign.path}`,
+					error: result.error,
+				};
+			})
+		),
+		...componentNames.map((name) =>
+			validationLimit(async () => {
+				const rawResult = await deps.validateComponentFn({ name });
+				const result = normalizeValidationResult(
+					rawResult,
+					'Component validator returned an invalid response.'
+				);
+				return {
+					ok: result.ok,
+					context: `Component ${name}`,
+					error: result.error,
+				};
+			})
+		),
 	];
 
 	const results = await Promise.all(validationTasks);
@@ -230,22 +235,24 @@ export default async function deploy(options = {}, dependencies = {}) {
 	const components = [];
 
 	const componentsDir = deps.pathModule.join(cwd, 'components');
-	for (const file of deps.fsModule.readdirSync(componentsDir)) {
-		const data = {
-			file: deps.fsModule.readFileSync(
-				deps.pathModule.join(componentsDir, file, `${file}.js`),
-				'utf8'
-			),
-			config: JSON.parse(
-				deps.fsModule.readFileSync(
-					deps.pathModule.join(componentsDir, file, `${file}.json`),
+	if (deps.fsModule.existsSync(componentsDir)) {
+		for (const file of deps.fsModule.readdirSync(componentsDir)) {
+			const data = {
+				file: deps.fsModule.readFileSync(
+					deps.pathModule.join(componentsDir, file, `${file}.js`),
 					'utf8'
-				)
-			),
-		};
+				),
+				config: JSON.parse(
+					deps.fsModule.readFileSync(
+						deps.pathModule.join(componentsDir, file, `${file}.json`),
+						'utf8'
+					)
+				),
+			};
 
-		components.push(limit(() => deps.updateComponentConfigFn(data)));
-		components.push(limit(() => deps.updateComponentFileFn(data)));
+			components.push(limit(() => deps.updateComponentConfigFn(data)));
+			components.push(limit(() => deps.updateComponentFileFn(data)));
+		}
 	}
 
 	// Start loading all the components

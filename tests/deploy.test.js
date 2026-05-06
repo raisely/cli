@@ -386,4 +386,59 @@ describe('deploy command', () => {
 		assert.equal(styleUploads, 0);
 		assert.deepEqual(exitCodes, [1]);
 	});
+
+	test('missing components directory does not crash deploy', async () => {
+		let styleUploads = 0;
+		let pageUploads = 0;
+		const exitCodes = [];
+
+		await deploy(
+			{},
+			{
+				cwd: () => '/repo',
+				loadConfigFn: async () => ({
+					campaigns: ['campaign-uuid'],
+					cli: true,
+				}),
+				getTokenFn: async () => 'token-123',
+				getCampaignFn: async () => ({
+					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
+				}),
+				validateCampaignSassFn: async () => ({ ok: true }),
+				validateComponentFn: async () => ({ ok: true }),
+				uploadStylesFn: async () => {
+					styleUploads += 1;
+				},
+				uploadPageFn: async () => {
+					pageUploads += 1;
+				},
+				fsModule: {
+					existsSync(filePath) {
+						return filePath !== '/repo/components';
+					},
+					readdirSync() {
+						return [];
+					},
+					readFileSync() {
+						return '';
+					},
+				},
+				globFn: async () => [],
+				logFn: () => {},
+				brFn: () => {},
+				welcomeFn: () => {},
+				informUpdateFn: async () => {},
+				loaderFactory: createLoaderFactory(),
+				consoleRef: {
+					log() {},
+					error() {},
+				},
+				setExitCode: (code) => exitCodes.push(code),
+			}
+		);
+
+		assert.equal(styleUploads, 1);
+		assert.equal(pageUploads, 0);
+		assert.deepEqual(exitCodes, []);
+	});
 });
