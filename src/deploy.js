@@ -47,6 +47,15 @@ function normalizeValidationResult(result, fallbackError) {
 	};
 }
 
+function toErrorMessage(error, fallback) {
+	if (typeof error === 'string' && error.trim()) return error.trim();
+	if (error instanceof Error && error.message.trim()) return error.message.trim();
+	if (error && typeof error.message === 'string' && error.message.trim()) {
+		return error.message.trim();
+	}
+	return fallback;
+}
+
 function getComponentNames() {
 	const componentsDir = path.join(process.cwd(), 'components');
 	if (!fs.existsSync(componentsDir)) {
@@ -62,15 +71,28 @@ function getComponentNames() {
 async function runPreflightValidation({ config }) {
 	const validationLimit = pLimit(4);
 	const loader = ora('Validating campaigns and components').start();
-	const campaigns = await Promise.all(
-		config.campaigns.map(async (campaignUuid) => {
-			const campaign = await getCampaign({ uuid: campaignUuid });
-			return {
-				uuid: campaign.data.uuid,
-				path: campaign.data.path,
-			};
-		})
-	);
+	let campaigns = [];
+	try {
+		campaigns = await Promise.all(
+			config.campaigns.map(async (campaignUuid) => {
+				const campaign = await getCampaign({ uuid: campaignUuid });
+				return {
+					uuid: campaign.data.uuid,
+					path: campaign.data.path,
+				};
+			})
+		);
+	} catch (error) {
+		loader.fail('Deploy validation failed');
+		log(
+			`Campaign lookup failed: ${toErrorMessage(
+				error,
+				'Could not load campaign metadata for validation.'
+			)}`,
+			'red'
+		);
+		return false;
+	}
 	const componentNames = getComponentNames();
 
 	const validationTasks = [

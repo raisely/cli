@@ -204,6 +204,20 @@ describe('deploy command', () => {
 		);
 	});
 
+	test('campaign lookup failure fails validation gracefully', async () => {
+		mocks.getCampaign.mockRejectedValue(new Error('gateway timeout'));
+
+		await deploy({});
+
+		expect(process.exitCode).toBe(1);
+		expect(mocks.validateCampaignSass).not.toHaveBeenCalled();
+		expect(mocks.uploadStyles).not.toHaveBeenCalled();
+		expect(mocks.log).toHaveBeenCalledWith(
+			'Campaign lookup failed: gateway timeout',
+			'red'
+		);
+	});
+
 	test('malformed validator result fails deploy gracefully', async () => {
 		mocks.validateCampaignSass.mockResolvedValue(undefined);
 
