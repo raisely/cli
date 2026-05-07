@@ -1,19 +1,108 @@
-import { describe, test } from 'vitest';
-import assert from 'node:assert/strict';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => {
+	const fs = {
+		existsSync: vi.fn(),
+		readdirSync: vi.fn(),
+		readFileSync: vi.fn(),
+	};
+
+	const ora = vi.fn((label) => {
+		const loader = {
+			label,
+			start: vi.fn(),
+			succeed: vi.fn(),
+			fail: vi.fn(),
+			warn: vi.fn(),
+		};
+		loader.start.mockReturnValue(loader);
+		return loader;
+	});
+
+	return {
+		detectLayout: vi.fn(),
+		shouldRefuseLayoutForCommand: vi.fn(),
+		getLegacyLayoutRefusalMessage: vi.fn(),
+		loadConfig: vi.fn(),
+		getToken: vi.fn(),
+		getCampaign: vi.fn(),
+		uploadStyles: vi.fn(),
+		updateComponentConfig: vi.fn(),
+		updateComponentFile: vi.fn(),
+		uploadPage: vi.fn(),
+		validateCampaignSass: vi.fn(),
+		validateComponent: vi.fn(),
+		inquirerPrompt: vi.fn(),
+		glob: vi.fn(),
+		welcome: vi.fn(),
+		log: vi.fn(),
+		br: vi.fn(),
+		informUpdate: vi.fn(),
+		ora,
+		fs,
+	};
+});
+
+vi.mock('inquirer', () => ({
+	default: {
+		prompt: mocks.inquirerPrompt,
+	},
+}));
+
+vi.mock('ora', () => ({
+	default: mocks.ora,
+}));
+
+vi.mock('glob-promise', () => ({
+	default: mocks.glob,
+}));
+
+vi.mock('fs', () => ({
+	default: mocks.fs,
+	...mocks.fs,
+}));
+
+vi.mock('../src/helpers.js', () => ({
+	welcome: mocks.welcome,
+	log: mocks.log,
+	br: mocks.br,
+	informUpdate: mocks.informUpdate,
+}));
+
+vi.mock('../src/actions/layout.js', () => ({
+	detectLayout: mocks.detectLayout,
+	shouldRefuseLayoutForCommand: mocks.shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage: mocks.getLegacyLayoutRefusalMessage,
+}));
+
+vi.mock('../src/config.js', () => ({
+	loadConfig: mocks.loadConfig,
+}));
+
+vi.mock('../src/actions/auth.js', () => ({
+	getToken: mocks.getToken,
+}));
+
+vi.mock('../src/actions/campaigns.js', () => ({
+	getCampaign: mocks.getCampaign,
+	uploadStyles: mocks.uploadStyles,
+}));
+
+vi.mock('../src/actions/components.js', () => ({
+	updateComponentConfig: mocks.updateComponentConfig,
+	updateComponentFile: mocks.updateComponentFile,
+}));
+
+vi.mock('../src/actions/pages.js', () => ({
+	uploadPage: mocks.uploadPage,
+}));
+
+vi.mock('../src/actions/validate.js', () => ({
+	validateCampaignSass: mocks.validateCampaignSass,
+	validateComponent: mocks.validateComponent,
+}));
 
 import deploy from '../src/deploy.js';
-
-function createLoaderFactory() {
-	return () => ({
-		start() {
-			return {
-				succeed() {},
-				fail() {},
-				warn() {},
-			};
-		},
-	});
-}
 
 function createDirent(name) {
 	return {
@@ -24,421 +113,144 @@ function createDirent(name) {
 	};
 }
 
+function setDefaultMocks() {
+	mocks.detectLayout.mockReturnValue('v2');
+	mocks.shouldRefuseLayoutForCommand.mockReturnValue(false);
+	mocks.getLegacyLayoutRefusalMessage.mockReturnValue('layout message');
+	mocks.loadConfig.mockResolvedValue({
+		campaigns: ['campaign-uuid'],
+		cli: true,
+	});
+	mocks.getToken.mockResolvedValue('token-123');
+	mocks.getCampaign.mockResolvedValue({
+		data: { uuid: 'campaign-uuid', path: 'my-campaign' },
+	});
+	mocks.uploadStyles.mockResolvedValue(undefined);
+	mocks.updateComponentConfig.mockResolvedValue(undefined);
+	mocks.updateComponentFile.mockResolvedValue(undefined);
+	mocks.uploadPage.mockResolvedValue(undefined);
+	mocks.validateCampaignSass.mockResolvedValue({ ok: true });
+	mocks.validateComponent.mockResolvedValue({ ok: true });
+	mocks.inquirerPrompt.mockResolvedValue({ confirm: true });
+	mocks.glob.mockResolvedValue([]);
+	mocks.informUpdate.mockResolvedValue(undefined);
+	mocks.fs.existsSync.mockReturnValue(true);
+	mocks.fs.readFileSync.mockReturnValue('');
+	mocks.fs.readdirSync.mockImplementation((target, options) => {
+		if (options && options.withFileTypes) return [];
+		if (target === '/repo/components') return [];
+		return [];
+	});
+}
+
 describe('deploy command', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(process, 'cwd').mockReturnValue('/repo');
+		process.exitCode = undefined;
+		setDefaultMocks();
+	});
+
 	test('validation failure prints all errors and blocks uploads', async () => {
-		const messages = [];
-		const uploads = [];
-		const exitCodes = [];
+		mocks.fs.readdirSync.mockImplementation((target, options) => {
+			if (options && options.withFileTypes) return [createDirent('hero')];
+			if (target === '/repo/components') return [];
+			return [];
+		});
+		mocks.validateCampaignSass.mockResolvedValue({
+			ok: false,
+			error: 'SassError: Expected "}"',
+		});
+		mocks.validateComponent.mockResolvedValue({
+			ok: false,
+			error: 'Unexpected token (4:9)',
+		});
 
-		await deploy(
-			{},
-			{
-				cwd: () => '/repo',
-				loadConfigFn: async () => ({
-					campaigns: ['campaign-uuid'],
-					cli: true,
-				}),
-				getTokenFn: async () => 'token-123',
-				getCampaignFn: async () => ({
-					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
-				}),
-				validateCampaignSassFn: async () => ({
-					ok: false,
-					error: 'SassError: Expected "}"',
-				}),
-				validateComponentFn: async () => ({
-					ok: false,
-					error: 'Unexpected token (4:9)',
-				}),
-				uploadStylesFn: async () => {
-					uploads.push('styles');
-				},
-				fsModule: {
-					existsSync() {
-						return true;
-					},
-					readdirSync(_dir, options) {
-						if (options && options.withFileTypes) {
-							return [createDirent('hero')];
-						}
-						return [];
-					},
-					readFileSync() {
-						return '';
-					},
-				},
-				globFn: async () => [],
-				logFn: (message) => messages.push(message),
-				brFn: () => {},
-				welcomeFn: () => {},
-				informUpdateFn: async () => {},
-				loaderFactory: createLoaderFactory(),
-				consoleRef: {
-					log() {},
-					error() {},
-				},
-				setExitCode: (code) => exitCodes.push(code),
-			}
-		);
+		await deploy({});
 
-		assert.deepEqual(uploads, []);
-		assert.deepEqual(exitCodes, [1]);
-		assert.equal(
-			messages.includes('Campaign my-campaign: SassError: Expected "}"'),
-			true
+		expect(mocks.uploadStyles).not.toHaveBeenCalled();
+		expect(process.exitCode).toBe(1);
+		expect(mocks.log).toHaveBeenCalledWith(
+			'Campaign my-campaign: SassError: Expected "}"',
+			'red'
 		);
-		assert.equal(
-			messages.includes('Component hero: Unexpected token (4:9)'),
-			true
+		expect(mocks.log).toHaveBeenCalledWith(
+			'Component hero: Unexpected token (4:9)',
+			'red'
 		);
 	});
 
 	test('--no-validate skips the gate and continues deploy', async () => {
-		let campaignValidationCalls = 0;
-		let componentValidationCalls = 0;
-		let styleUploads = 0;
+		await deploy({ validate: false });
 
-		await deploy(
-			{ validate: false },
-			{
-				cwd: () => '/repo',
-				loadConfigFn: async () => ({
-					campaigns: ['campaign-uuid'],
-					cli: true,
-				}),
-				getTokenFn: async () => 'token-123',
-				getCampaignFn: async () => ({
-					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
-				}),
-				validateCampaignSassFn: async () => {
-					campaignValidationCalls += 1;
-					return { ok: true };
-				},
-				validateComponentFn: async () => {
-					componentValidationCalls += 1;
-					return { ok: true };
-				},
-				uploadStylesFn: async () => {
-					styleUploads += 1;
-				},
-				updateComponentConfigFn: async () => {},
-				updateComponentFileFn: async () => {},
-				uploadPageFn: async () => {},
-				fsModule: {
-					existsSync() {
-						return true;
-					},
-					readdirSync(_dir, options) {
-						if (options && options.withFileTypes) return [];
-						return [];
-					},
-					readFileSync() {
-						return '';
-					},
-				},
-				globFn: async () => [],
-				logFn: () => {},
-				brFn: () => {},
-				welcomeFn: () => {},
-				informUpdateFn: async () => {},
-				loaderFactory: createLoaderFactory(),
-				consoleRef: {
-					log() {},
-					error() {},
-				},
-				setExitCode: () => {},
-			}
-		);
-
-		assert.equal(campaignValidationCalls, 0);
-		assert.equal(componentValidationCalls, 0);
-		assert.equal(styleUploads, 1);
+		expect(mocks.validateCampaignSass).not.toHaveBeenCalled();
+		expect(mocks.validateComponent).not.toHaveBeenCalled();
+		expect(mocks.uploadStyles).toHaveBeenCalledTimes(1);
 	});
 
 	test('network failure during validation blocks deploy with exit code 1', async () => {
-		const messages = [];
-		let styleUploads = 0;
-		const exitCodes = [];
+		mocks.validateCampaignSass.mockResolvedValue({
+			ok: false,
+			error: 'socket hang up',
+		});
 
-		await deploy(
-			{},
-			{
-				cwd: () => '/repo',
-				loadConfigFn: async () => ({
-					campaigns: ['campaign-uuid'],
-					cli: true,
-				}),
-				getTokenFn: async () => 'token-123',
-				getCampaignFn: async () => ({
-					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
-				}),
-				validateCampaignSassFn: async () => ({
-					ok: false,
-					error: 'socket hang up',
-				}),
-				validateComponentFn: async () => ({ ok: true }),
-				uploadStylesFn: async () => {
-					styleUploads += 1;
-				},
-				fsModule: {
-					existsSync() {
-						return true;
-					},
-					readdirSync(_dir, options) {
-						if (options && options.withFileTypes) return [];
-						return [];
-					},
-					readFileSync() {
-						return '';
-					},
-				},
-				globFn: async () => [],
-				logFn: (message) => messages.push(message),
-				brFn: () => {},
-				welcomeFn: () => {},
-				informUpdateFn: async () => {},
-				loaderFactory: createLoaderFactory(),
-				consoleRef: {
-					log() {},
-					error() {},
-				},
-				setExitCode: (code) => exitCodes.push(code),
-			}
+		await deploy({});
+
+		expect(mocks.uploadStyles).not.toHaveBeenCalled();
+		expect(process.exitCode).toBe(1);
+		expect(mocks.log).toHaveBeenCalledWith(
+			'Campaign my-campaign: socket hang up',
+			'red'
 		);
-
-		assert.equal(styleUploads, 0);
-		assert.deepEqual(exitCodes, [1]);
-		assert.equal(messages.includes('Campaign my-campaign: socket hang up'), true);
 	});
 
 	test('malformed validator result fails deploy gracefully', async () => {
-		const messages = [];
-		let styleUploads = 0;
-		const exitCodes = [];
+		mocks.validateCampaignSass.mockResolvedValue(undefined);
 
-		await deploy(
-			{},
-			{
-				cwd: () => '/repo',
-				loadConfigFn: async () => ({
-					campaigns: ['campaign-uuid'],
-					cli: true,
-				}),
-				getTokenFn: async () => 'token-123',
-				getCampaignFn: async () => ({
-					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
-				}),
-				validateCampaignSassFn: async () => undefined,
-				validateComponentFn: async () => ({ ok: true }),
-				uploadStylesFn: async () => {
-					styleUploads += 1;
-				},
-				fsModule: {
-					existsSync() {
-						return true;
-					},
-					readdirSync(_dir, options) {
-						if (options && options.withFileTypes) return [];
-						return [];
-					},
-					readFileSync() {
-						return '';
-					},
-				},
-				globFn: async () => [],
-				logFn: (message) => messages.push(message),
-				brFn: () => {},
-				welcomeFn: () => {},
-				informUpdateFn: async () => {},
-				loaderFactory: createLoaderFactory(),
-				consoleRef: {
-					log() {},
-					error() {},
-				},
-				setExitCode: (code) => exitCodes.push(code),
-			}
-		);
+		await deploy({});
 
-		assert.equal(styleUploads, 0);
-		assert.deepEqual(exitCodes, [1]);
-		assert.equal(
-			messages.includes(
-				'Campaign my-campaign: SASS validator returned an invalid response.'
-			),
-			true
+		expect(mocks.uploadStyles).not.toHaveBeenCalled();
+		expect(process.exitCode).toBe(1);
+		expect(mocks.log).toHaveBeenCalledWith(
+			'Campaign my-campaign: SASS validator returned an invalid response.',
+			'red'
 		);
 	});
 
 	test('cli=true still runs validation gate before uploads', async () => {
-		let campaignValidationCalls = 0;
-		let componentValidationCalls = 0;
-		let styleUploads = 0;
+		await deploy({});
 
-		await deploy(
-			{},
-			{
-				cwd: () => '/repo',
-				loadConfigFn: async () => ({
-					campaigns: ['campaign-uuid'],
-					cli: true,
-				}),
-				getTokenFn: async () => 'token-123',
-				getCampaignFn: async () => ({
-					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
-				}),
-				validateCampaignSassFn: async () => {
-					campaignValidationCalls += 1;
-					return { ok: true };
-				},
-				validateComponentFn: async () => {
-					componentValidationCalls += 1;
-					return { ok: true };
-				},
-				uploadStylesFn: async () => {
-					styleUploads += 1;
-				},
-				updateComponentConfigFn: async () => {},
-				updateComponentFileFn: async () => {},
-				uploadPageFn: async () => {},
-				fsModule: {
-					existsSync() {
-						return true;
-					},
-					readdirSync(_dir, options) {
-						if (options && options.withFileTypes) return [];
-						return [];
-					},
-					readFileSync() {
-						return '';
-					},
-				},
-				globFn: async () => [],
-				logFn: () => {},
-				brFn: () => {},
-				welcomeFn: () => {},
-				informUpdateFn: async () => {},
-				loaderFactory: createLoaderFactory(),
-				consoleRef: {
-					log() {},
-					error() {},
-				},
-				setExitCode: () => {},
-			}
-		);
-
-		assert.equal(campaignValidationCalls, 1);
-		assert.equal(componentValidationCalls, 0);
-		assert.equal(styleUploads, 1);
+		expect(mocks.validateCampaignSass).toHaveBeenCalledTimes(1);
+		expect(mocks.validateComponent).not.toHaveBeenCalled();
+		expect(mocks.uploadStyles).toHaveBeenCalledTimes(1);
 	});
 
 	test('--force still runs validation and blocks on failure', async () => {
-		let campaignValidationCalls = 0;
-		let styleUploads = 0;
-		const exitCodes = [];
+		mocks.loadConfig.mockResolvedValue({
+			campaigns: ['campaign-uuid'],
+			cli: false,
+		});
+		mocks.validateCampaignSass.mockResolvedValue({
+			ok: false,
+			error: 'SassError: invalid selector',
+		});
 
-		await deploy(
-			{ force: true },
-			{
-				cwd: () => '/repo',
-				loadConfigFn: async () => ({
-					campaigns: ['campaign-uuid'],
-					cli: false,
-				}),
-				getTokenFn: async () => 'token-123',
-				getCampaignFn: async () => ({
-					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
-				}),
-				validateCampaignSassFn: async () => {
-					campaignValidationCalls += 1;
-					return { ok: false, error: 'SassError: invalid selector' };
-				},
-				validateComponentFn: async () => ({ ok: true }),
-				uploadStylesFn: async () => {
-					styleUploads += 1;
-				},
-				fsModule: {
-					existsSync() {
-						return true;
-					},
-					readdirSync(_dir, options) {
-						if (options && options.withFileTypes) return [];
-						return [];
-					},
-					readFileSync() {
-						return '';
-					},
-				},
-				globFn: async () => [],
-				logFn: () => {},
-				brFn: () => {},
-				welcomeFn: () => {},
-				informUpdateFn: async () => {},
-				loaderFactory: createLoaderFactory(),
-				consoleRef: {
-					log() {},
-					error() {},
-				},
-				setExitCode: (code) => exitCodes.push(code),
-			}
-		);
+		await deploy({ force: true });
 
-		assert.equal(campaignValidationCalls, 1);
-		assert.equal(styleUploads, 0);
-		assert.deepEqual(exitCodes, [1]);
+		expect(mocks.validateCampaignSass).toHaveBeenCalledTimes(1);
+		expect(mocks.uploadStyles).not.toHaveBeenCalled();
+		expect(process.exitCode).toBe(1);
 	});
 
 	test('missing components directory does not crash deploy', async () => {
-		let styleUploads = 0;
-		let pageUploads = 0;
-		const exitCodes = [];
-
-		await deploy(
-			{},
-			{
-				cwd: () => '/repo',
-				loadConfigFn: async () => ({
-					campaigns: ['campaign-uuid'],
-					cli: true,
-				}),
-				getTokenFn: async () => 'token-123',
-				getCampaignFn: async () => ({
-					data: { uuid: 'campaign-uuid', path: 'my-campaign' },
-				}),
-				validateCampaignSassFn: async () => ({ ok: true }),
-				validateComponentFn: async () => ({ ok: true }),
-				uploadStylesFn: async () => {
-					styleUploads += 1;
-				},
-				uploadPageFn: async () => {
-					pageUploads += 1;
-				},
-				fsModule: {
-					existsSync(filePath) {
-						return filePath !== '/repo/components';
-					},
-					readdirSync() {
-						return [];
-					},
-					readFileSync() {
-						return '';
-					},
-				},
-				globFn: async () => [],
-				logFn: () => {},
-				brFn: () => {},
-				welcomeFn: () => {},
-				informUpdateFn: async () => {},
-				loaderFactory: createLoaderFactory(),
-				consoleRef: {
-					log() {},
-					error() {},
-				},
-				setExitCode: (code) => exitCodes.push(code),
-			}
+		mocks.fs.existsSync.mockImplementation(
+			(target) => target !== '/repo/components'
 		);
 
-		assert.equal(styleUploads, 1);
-		assert.equal(pageUploads, 0);
-		assert.deepEqual(exitCodes, []);
+		await deploy({});
+
+		expect(mocks.uploadStyles).toHaveBeenCalledTimes(1);
+		expect(mocks.uploadPage).not.toHaveBeenCalled();
+		expect(process.exitCode).toBeUndefined();
 	});
 });

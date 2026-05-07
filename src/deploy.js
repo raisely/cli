@@ -26,37 +26,6 @@ import {
 	validateComponent,
 } from './actions/validate.js';
 
-function createDeployDependencies(overrides = {}) {
-	return {
-		loadConfigFn: overrides.loadConfigFn || loadConfig,
-		getTokenFn: overrides.getTokenFn || getToken,
-		getCampaignFn: overrides.getCampaignFn || getCampaign,
-		uploadStylesFn: overrides.uploadStylesFn || uploadStyles,
-		updateComponentConfigFn:
-			overrides.updateComponentConfigFn || updateComponentConfig,
-		updateComponentFileFn: overrides.updateComponentFileFn || updateComponentFile,
-		uploadPageFn: overrides.uploadPageFn || uploadPage,
-		validateCampaignSassFn:
-			overrides.validateCampaignSassFn || validateCampaignSass,
-		validateComponentFn: overrides.validateComponentFn || validateComponent,
-		globFn: overrides.globFn || glob,
-		fsModule: overrides.fsModule || fs,
-		pathModule: overrides.pathModule || path,
-		logFn: overrides.logFn || log,
-		brFn: overrides.brFn || br,
-		welcomeFn: overrides.welcomeFn || welcome,
-		informUpdateFn: overrides.informUpdateFn || informUpdate,
-		loaderFactory: overrides.loaderFactory || ora,
-		consoleRef: overrides.consoleRef || console,
-		cwd: overrides.cwd || process.cwd,
-		setExitCode:
-			overrides.setExitCode ||
-			((code) => {
-				process.exitCode = code;
-			}),
-	};
-}
-
 function formatValidationErrors(errors) {
 	return errors.map(({ context, error }) => `${context}: ${error}`);
 }
@@ -78,37 +47,36 @@ function normalizeValidationResult(result, fallbackError) {
 	};
 }
 
-function getComponentNames({ fsModule, pathModule, cwd }) {
-	const componentsDir = pathModule.join(cwd(), 'components');
-	if (!fsModule.existsSync(componentsDir)) {
+function getComponentNames() {
+	const componentsDir = path.join(process.cwd(), 'components');
+	if (!fs.existsSync(componentsDir)) {
 		return [];
 	}
 
-	return fsModule
+	return fs
 		.readdirSync(componentsDir, { withFileTypes: true })
 		.filter((entry) => entry.isDirectory())
 		.map((entry) => entry.name);
 }
 
-async function runPreflightValidation({ config }, dependencies) {
-	const deps = createDeployDependencies(dependencies);
+async function runPreflightValidation({ config }) {
 	const validationLimit = pLimit(4);
-	const loader = deps.loaderFactory('Validating campaigns and components').start();
+	const loader = ora('Validating campaigns and components').start();
 	const campaigns = await Promise.all(
 		config.campaigns.map(async (campaignUuid) => {
-			const campaign = await deps.getCampaignFn({ uuid: campaignUuid });
+			const campaign = await getCampaign({ uuid: campaignUuid });
 			return {
 				uuid: campaign.data.uuid,
 				path: campaign.data.path,
 			};
 		})
 	);
-	const componentNames = getComponentNames(deps);
+	const componentNames = getComponentNames();
 
 	const validationTasks = [
 		...campaigns.map((campaign) =>
 			validationLimit(async () => {
-				const rawResult = await deps.validateCampaignSassFn({
+				const rawResult = await validateCampaignSass({
 					campaign,
 					token: config.token,
 				});
@@ -125,7 +93,7 @@ async function runPreflightValidation({ config }, dependencies) {
 		),
 		...componentNames.map((name) =>
 			validationLimit(async () => {
-				const rawResult = await deps.validateComponentFn({ name });
+				const rawResult = await validateComponent({ name });
 				const result = normalizeValidationResult(
 					rawResult,
 					'Component validator returned an invalid response.'
@@ -145,7 +113,7 @@ async function runPreflightValidation({ config }, dependencies) {
 	if (failed.length > 0) {
 		loader.fail('Deploy validation failed');
 		formatValidationErrors(failed).forEach((message) => {
-			deps.logFn(message, 'red');
+			log(message, 'red');
 		});
 		return false;
 	}
@@ -154,36 +122,35 @@ async function runPreflightValidation({ config }, dependencies) {
 	return true;
 }
 
-export default async function deploy(options = {}, dependencies = {}) {
-	const deps = createDeployDependencies(dependencies);
-	const cwd = deps.cwd();
+export default async function deploy(options = {}) {
+	const cwd = process.cwd();
 	const layout = detectLayout(cwd);
 	if (shouldRefuseLayoutForCommand('deploy', layout)) {
-		deps.brFn();
-		deps.logFn(getLegacyLayoutRefusalMessage('deploy', layout), 'red');
-		deps.setExitCode(1);
+		br();
+		log(getLegacyLayoutRefusalMessage('deploy', layout), 'red');
+		process.exitCode = 1;
 		return;
 	}
 
 	// load config
-	let config = await deps.loadConfigFn();
-	config.token = await deps.getTokenFn(program, config);
+	let config = await loadConfig();
+	config.token = await getToken(program, config);
 
-	deps.welcomeFn();
-	deps.logFn(`You are about to deploy your local directly to Raisely`, 'white');
-	deps.brFn();
-	deps.consoleRef.log(`    ${chalk.inverse(`${cwd}`)}`);
-	deps.brFn();
+	welcome();
+	log(`You are about to deploy your local directly to Raisely`, 'white');
+	br();
+	console.log(`    ${chalk.inverse(`${cwd}`)}`);
+	br();
 	if (config.apiUrl) {
-		deps.brFn();
-		deps.consoleRef.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
-		deps.brFn();
+		br();
+		console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
+		br();
 	}
-	deps.logFn(
+	log(
 		`You will overwrite the styles, components, and pages in your campaign.`,
 		'white'
 	);
-	deps.brFn();
+	br();
 
 	if (!config.cli && !options.force) {
 		const response = await inquirer.prompt([
@@ -195,35 +162,35 @@ export default async function deploy(options = {}, dependencies = {}) {
 		]);
 
 		if (!response.confirm) {
-			deps.brFn();
-			return deps.logFn('Deploy aborted', 'red');
+			br();
+			return log('Deploy aborted', 'red');
 		}
 	}
 
 	if (options.validate !== false) {
-		const validationPassed = await runPreflightValidation({ config }, deps);
+		const validationPassed = await runPreflightValidation({ config });
 		if (!validationPassed) {
-			deps.brFn();
-			deps.setExitCode(1);
+			br();
+			process.exitCode = 1;
 			return;
 		}
 	} else {
-		deps.logFn('Skipping validation due to --no-validate flag.', 'yellow');
+		log('Skipping validation due to --no-validate flag.', 'yellow');
 	}
 
 	// upload campaign stylesheets
 	for (const campaignUuid of config.campaigns) {
-		const loader = deps.loaderFactory(`Uploading styles for ${campaignUuid}`).start();
+		const loader = ora(`Uploading styles for ${campaignUuid}`).start();
 
-		const campaign = await deps.getCampaignFn({ uuid: campaignUuid });
+		const campaign = await getCampaign({ uuid: campaignUuid });
 
 		try {
-			await deps.uploadStylesFn(campaign.data.path);
+			await uploadStyles(campaign.data.path);
 		} catch (e) {
 			loader.fail(`Failed to upload styles for ${campaignUuid}`);
-			deps.brFn();
-			deps.consoleRef.error(e);
-			deps.setExitCode(1);
+			br();
+			console.error(e);
+			process.exitCode = 1;
 			return;
 		}
 
@@ -234,29 +201,23 @@ export default async function deploy(options = {}, dependencies = {}) {
 	const limit = pLimit(5);
 	const components = [];
 
-	const componentsDir = deps.pathModule.join(cwd, 'components');
-	if (deps.fsModule.existsSync(componentsDir)) {
-		for (const file of deps.fsModule.readdirSync(componentsDir)) {
+	const componentsDir = path.join(cwd, 'components');
+	if (fs.existsSync(componentsDir)) {
+		for (const file of fs.readdirSync(componentsDir)) {
 			const data = {
-				file: deps.fsModule.readFileSync(
-					deps.pathModule.join(componentsDir, file, `${file}.js`),
-					'utf8'
-				),
+				file: fs.readFileSync(path.join(componentsDir, file, `${file}.js`), 'utf8'),
 				config: JSON.parse(
-					deps.fsModule.readFileSync(
-						deps.pathModule.join(componentsDir, file, `${file}.json`),
-						'utf8'
-					)
+					fs.readFileSync(path.join(componentsDir, file, `${file}.json`), 'utf8')
 				),
 			};
 
-			components.push(limit(() => deps.updateComponentConfigFn(data)));
-			components.push(limit(() => deps.updateComponentFileFn(data)));
+			components.push(limit(() => updateComponentConfig(data)));
+			components.push(limit(() => updateComponentFile(data)));
 		}
 	}
 
 	// Start loading all the components
-	const loader = deps.loaderFactory(`Uploading components`).start();
+	const loader = ora(`Uploading components`).start();
 	const deployResult = await Promise.allSettled(components);
 
 	const rejected = deployResult
@@ -266,21 +227,21 @@ export default async function deploy(options = {}, dependencies = {}) {
 	if (rejected.length > 0) {
 		loader.warn('The following errors occured while uploading components:');
 		rejected.forEach((error) => {
-			deps.logFn(error, 'red');
+			log(error, 'red');
 		});
 	} else {
 		loader.succeed();
 	}
 
 	// upload pages
-	const pageFiles = await deps.globFn('campaigns/*/pages/**/*.json', {
+	const pageFiles = await glob('campaigns/*/pages/**/*.json', {
 		cwd,
 	});
 
 	const pageTasks = [];
 	for (const file of pageFiles) {
-		const fullPath = deps.pathModule.join(cwd, file);
-		const pageData = JSON.parse(deps.fsModule.readFileSync(fullPath, 'utf8'));
+		const fullPath = path.join(cwd, file);
+		const pageData = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
 		if (!pageData.uuid) {
 			continue;
 		}
@@ -290,12 +251,12 @@ export default async function deploy(options = {}, dependencies = {}) {
 		) {
 			continue;
 		}
-		pageTasks.push(limit(() => deps.uploadPageFn(pageData)));
+		pageTasks.push(limit(() => uploadPage(pageData)));
 	}
 
 	let pageRejected = [];
 	if (pageTasks.length > 0) {
-		const pageLoader = deps.loaderFactory(`Uploading pages`).start();
+		const pageLoader = ora(`Uploading pages`).start();
 		const pageResults = await Promise.allSettled(pageTasks);
 
 		pageRejected = pageResults
@@ -307,7 +268,7 @@ export default async function deploy(options = {}, dependencies = {}) {
 				'The following errors occured while uploading pages:'
 			);
 			pageRejected.forEach((err) => {
-				deps.logFn(err, 'red');
+				log(err, 'red');
 			});
 		} else {
 			pageLoader.succeed();
@@ -315,8 +276,8 @@ export default async function deploy(options = {}, dependencies = {}) {
 	}
 
 	if (rejected.length === 0 && pageRejected.length === 0) {
-		await deps.informUpdateFn();
+		await informUpdate();
 	}
-	deps.brFn();
-	deps.logFn(`All done!`, 'green');
+	br();
+	log(`All done!`, 'green');
 }
