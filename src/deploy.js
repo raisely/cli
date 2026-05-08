@@ -21,9 +21,132 @@ import {
 import { uploadPage } from './actions/pages.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
+import {
+	validateCampaignSass,
+	validateComponent,
+} from './actions/validate.js';
+
+function formatValidationErrors(errors) {
+	return errors.map(({ context, error }) => `${context}: ${error}`);
+}
+
+function normalizeValidationResult(result, fallbackError) {
+	if (result && typeof result === 'object' && typeof result.ok === 'boolean') {
+		return {
+			ok: result.ok,
+			error:
+				typeof result.error === 'string' && result.error.trim()
+					? result.error
+					: fallbackError,
+		};
+	}
+
+	return {
+		ok: false,
+		error: fallbackError,
+	};
+}
+
+function toErrorMessage(error, fallback) {
+	if (typeof error === 'string' && error.trim()) return error.trim();
+	if (error instanceof Error && error.message.trim()) return error.message.trim();
+	if (error && typeof error.message === 'string' && error.message.trim()) {
+		return error.message.trim();
+	}
+	return fallback;
+}
+
+function getComponentNames() {
+	const componentsDir = path.join(process.cwd(), 'components');
+	if (!fs.existsSync(componentsDir)) {
+		return [];
+	}
+
+	return fs
+		.readdirSync(componentsDir, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name);
+}
+
+async function runPreflightValidation({ config }) {
+	const validationLimit = pLimit(4);
+	const loader = ora('Validating campaigns and components').start();
+	let campaigns = [];
+	try {
+		campaigns = await Promise.all(
+			config.campaigns.map(async (campaignUuid) => {
+				const campaign = await getCampaign({ uuid: campaignUuid });
+				return {
+					uuid: campaign.data.uuid,
+					path: campaign.data.path,
+				};
+			})
+		);
+	} catch (error) {
+		loader.fail('Deploy validation failed');
+		log(
+			`Campaign lookup failed: ${toErrorMessage(
+				error,
+				'Could not load campaign metadata for validation.'
+			)}`,
+			'red'
+		);
+		return false;
+	}
+	const componentNames = getComponentNames();
+
+	const validationTasks = [
+		...campaigns.map((campaign) =>
+			validationLimit(async () => {
+				const rawResult = await validateCampaignSass({
+					campaign,
+					token: config.token,
+				});
+				const result = normalizeValidationResult(
+					rawResult,
+					'SASS validator returned an invalid response.'
+				);
+				return {
+					ok: result.ok,
+					context: `Campaign ${campaign.path}`,
+					error: result.error,
+				};
+			})
+		),
+		...componentNames.map((name) =>
+			validationLimit(async () => {
+				const rawResult = await validateComponent({ name });
+				const result = normalizeValidationResult(
+					rawResult,
+					'Component validator returned an invalid response.'
+				);
+				return {
+					ok: result.ok,
+					context: `Component ${name}`,
+					error: result.error,
+				};
+			})
+		),
+	];
+
+	const results = await Promise.all(validationTasks);
+	const failed = results.filter((result) => !result.ok);
+
+	if (failed.length > 0) {
+		loader.fail('Deploy validation failed');
+		formatValidationErrors(failed).forEach((message) => {
+			log(message, 'red');
+		});
+		return false;
+	}
+
+	loader.succeed('Validation passed');
+	return true;
+}
 
 export default async function deploy(options = {}) {
-	const layout = detectLayout(process.cwd());
+	const cwd = process.cwd();
+	const layout = detectLayout(cwd);
 	if (shouldRefuseLayoutForCommand('deploy', layout)) {
 		br();
 		log(getLegacyLayoutRefusalMessage('deploy', layout), 'red');
@@ -33,12 +156,12 @@ export default async function deploy(options = {}) {
 
 	// load config
 	let config = await loadConfig();
-	await getToken(program, config);
+	config.token = await getToken(program, config);
 
 	welcome();
 	log(`You are about to deploy your local directly to Raisely`, 'white');
 	br();
-	console.log(`    ${chalk.inverse(`${process.cwd()}`)}`);
+	console.log(`    ${chalk.inverse(`${cwd}`)}`);
 	br();
 	if (config.apiUrl) {
 		br();
@@ -66,6 +189,17 @@ export default async function deploy(options = {}) {
 		}
 	}
 
+	if (options.validate !== false) {
+		const validationPassed = await runPreflightValidation({ config });
+		if (!validationPassed) {
+			br();
+			process.exitCode = 1;
+			return;
+		}
+	} else {
+		log('Skipping validation due to --no-validate flag.', 'yellow');
+	}
+
 	// upload campaign stylesheets
 	for (const campaignUuid of config.campaigns) {
 		const loader = ora(`Uploading styles for ${campaignUuid}`).start();
@@ -75,9 +209,11 @@ export default async function deploy(options = {}) {
 		try {
 			await uploadStyles(campaign.data.path);
 		} catch (e) {
+			loader.fail(`Failed to upload styles for ${campaignUuid}`);
 			br();
 			console.error(e);
-			process.exit(1);
+			process.exitCode = 1;
+			return;
 		}
 
 		loader.succeed();
@@ -87,23 +223,19 @@ export default async function deploy(options = {}) {
 	const limit = pLimit(5);
 	const components = [];
 
-	const componentsDir = path.join(process.cwd(), 'components');
-	for (const file of fs.readdirSync(componentsDir)) {
-		const data = {
-			file: fs.readFileSync(
-				path.join(componentsDir, file, `${file}.js`),
-				'utf8'
-			),
-			config: JSON.parse(
-				fs.readFileSync(
-					path.join(componentsDir, file, `${file}.json`),
-					'utf8'
-				)
-			),
-		};
+	const componentsDir = path.join(cwd, 'components');
+	if (fs.existsSync(componentsDir)) {
+		for (const file of fs.readdirSync(componentsDir)) {
+			const data = {
+				file: fs.readFileSync(path.join(componentsDir, file, `${file}.js`), 'utf8'),
+				config: JSON.parse(
+					fs.readFileSync(path.join(componentsDir, file, `${file}.json`), 'utf8')
+				),
+			};
 
-		components.push(limit(() => updateComponentConfig(data)));
-		components.push(limit(() => updateComponentFile(data)));
+			components.push(limit(() => updateComponentConfig(data)));
+			components.push(limit(() => updateComponentFile(data)));
+		}
 	}
 
 	// Start loading all the components
@@ -125,12 +257,12 @@ export default async function deploy(options = {}) {
 
 	// upload pages
 	const pageFiles = await glob('campaigns/*/pages/**/*.json', {
-		cwd: process.cwd(),
+		cwd,
 	});
 
 	const pageTasks = [];
 	for (const file of pageFiles) {
-		const fullPath = path.join(process.cwd(), file);
+		const fullPath = path.join(cwd, file);
 		const pageData = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
 		if (!pageData.uuid) {
 			continue;

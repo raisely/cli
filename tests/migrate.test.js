@@ -1,4 +1,4 @@
-import { test, beforeEach, afterEach } from 'node:test';
+import { onTestFinished, test } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -45,9 +45,9 @@ function mockGetCampaign(map) {
 // legacy → v2: single campaign with partial
 // ---------------------------------------------------------------------------
 
-test('migrate moves pages and main SCSS to the v2 layout for a single campaign', async (t) => {
+test('migrate moves pages and main SCSS to the v2 layout for a single campaign', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	const repoRoot = copyFixture('legacy', cleanupFns);
 	const getCampaign = mockGetCampaign({ 'uuid-my-campaign': 'my-campaign' });
@@ -98,9 +98,9 @@ test('migrate moves pages and main SCSS to the v2 layout for a single campaign',
 // Partial preservation
 // ---------------------------------------------------------------------------
 
-test('migrate preserves partials with their original names', async (t) => {
+test('migrate preserves partials with their original names', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	const repoRoot = copyFixture('legacy', cleanupFns);
 	const getCampaign = mockGetCampaign({ 'uuid-my-campaign': 'my-campaign' });
@@ -126,9 +126,9 @@ test('migrate preserves partials with their original names', async (t) => {
 // Nested scss with same name as campaign must not be renamed to main.scss
 // ---------------------------------------------------------------------------
 
-test('migrate does not rename a nested scss file that shares the campaign name', async (t) => {
+test('migrate does not rename a nested scss file that shares the campaign name', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	const repoRoot = copyFixture('legacy', cleanupFns);
 	const getCampaign = mockGetCampaign({ 'uuid-my-campaign': 'my-campaign' });
@@ -172,9 +172,9 @@ test('migrate does not rename a nested scss file that shares the campaign name',
 // A file already named main.scss in the source must land in report.moved, not report.renamed
 // ---------------------------------------------------------------------------
 
-test('migrate classifies a source main.scss as moved, not renamed', async (t) => {
+test('migrate classifies a source main.scss as moved, not renamed', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	// Uses a fixture where the stylesheet is already named main.scss (no <campaign>.scss to rename).
 	const repoRoot = copyFixture('legacy-only-main-scss', cleanupFns);
@@ -201,9 +201,9 @@ test('migrate classifies a source main.scss as moved, not renamed', async (t) =>
 // Multi-campaign migration + empty root cleanup
 // ---------------------------------------------------------------------------
 
-test('migrate handles a multi-campaign repo and deletes empty root directories', async (t) => {
+test('migrate handles a multi-campaign repo and deletes empty root directories', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	const repoRoot = copyFixture('legacy-multi', cleanupFns);
 	const getCampaign = mockGetCampaign({
@@ -269,9 +269,9 @@ test('migrate handles a multi-campaign repo and deletes empty root directories',
 // Idempotency
 // ---------------------------------------------------------------------------
 
-test('migrate is a no-op when run a second time on an already-migrated repo', async (t) => {
+test('migrate is a no-op when run a second time on an already-migrated repo', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	const repoRoot = copyFixture('legacy-multi', cleanupFns);
 	const getCampaign = mockGetCampaign({
@@ -334,9 +334,9 @@ test('migrate is a no-op when run a second time on an already-migrated repo', as
 // Orphan handling
 // ---------------------------------------------------------------------------
 
-test('migrate leaves unconfigured campaign folders in place and lists them as orphans', async (t) => {
+test('migrate leaves unconfigured campaign folders in place and lists them as orphans', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	const repoRoot = copyFixture('legacy-multi', cleanupFns);
 
@@ -395,9 +395,9 @@ test('migrate leaves unconfigured campaign folders in place and lists them as or
 // getCampaign failure — campaign processed independently
 // ---------------------------------------------------------------------------
 
-test('migrate continues processing remaining campaigns when one UUID cannot be resolved', async (t) => {
+test('migrate continues processing remaining campaigns when one UUID cannot be resolved', async () => {
 	const cleanupFns = [];
-	t.after(() => cleanupFns.forEach((fn) => fn()));
+	onTestFinished(() => cleanupFns.forEach((fn) => fn()));
 
 	const repoRoot = copyFixture('legacy-multi', cleanupFns);
 
