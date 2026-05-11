@@ -8,7 +8,7 @@ For more about Raisely, see [https://raisely.com](https://raisely.com)
 
 ## Overview
 
-The Raisely CLI allows for fast and easy development on the Raisely platform. The CLI allows you to connect a directory on your local computer to a Raisely account. With the CLI you can update campaign stylesheets, edit and create custom React components, and edit page layout JSON under `pages/`.
+The Raisely CLI allows for fast and easy development on the Raisely platform. The CLI allows you to connect a directory on your local computer to a Raisely account. With the CLI you can update campaign stylesheets, edit and create custom React components, and edit page layout JSON under `campaigns/<campaign-path>/pages/`.
 
 The CLI is built on Node.js, so you'll need Node.js installed to use it.
 
@@ -25,6 +25,19 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 1. Install the CLI globally: `npm install @raisely/cli -g`
 2. Go into your working directory and run: `raisely init`
 
+`raisely init` writes the v2 project layout:
+
+```text
+campaigns/
+  <campaign-path>/
+    pages/
+      home.json
+    stylesheets/
+      main.scss
+components/
+  CustomHeader.js
+```
+
 ## Commands
 
 -   `raisely init` - start a new Raisely project and sync your campaigns
@@ -34,10 +47,12 @@ For other issues, [submit a support ticket](mailto:support@raisely.com).
 -   `raisely logout` - revoke the current access token when possible and clear keychain storage for this org
 -   `raisely update` - update local copies of styles, components, and pages from the API
 -   `raisely update --force` - same as above without the confirmation prompt (for CI/scripts)
+-   `raisely migrate` - migrate an existing repo from the legacy layout to the v2 layout
 -   `raisely create [name]` - create a new custom component, optionally add the component name to the command (otherwise you will be asked for one)
--   `raisely start` - starts watching for and uploading changes to styles and components
+-   `raisely start` - starts watching for and uploading validated changes to styles and components
 -   `raisely deploy` - deploy your local code to Raisely (styles, components, and pages)
--   `raisely local` - work locally on a Raisely campaign without syncing changes up (includes local page JSON overrides when `pages/` is present)
+-   `raisely deploy --no-validate` - deploy without running pre-flight validation first
+-   `raisely local` - work locally on a Raisely campaign without syncing changes up (includes local page JSON overrides from `campaigns/<campaign-path>/pages/` when present)
 -   `raisely local --uuid <uuid>` - open a specific campaign by UUID, skipping the picker
 -   `raisely local --port <port>` - run the local development server on a custom port instead of `8015`
 
