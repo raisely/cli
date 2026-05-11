@@ -1,4 +1,11 @@
 
+# 2.0.0
+- Breaking layout change: per-campaign content now lives in `campaigns/<campaign-path>/`, the entry SCSS file is now `main.scss`, and shared components remain at the repo root.
+- Added `raisely migrate` to upgrade existing repositories from the v1 layout to the v2 layout.
+- Added SCSS and component validation for `raisely deploy` (with `--no-validate`) and per-save validation for `raisely start`.
+- Improved `raisely local` resilience by serving the last successful CSS when compilation fails, removing the 5-second retry loop, and removing process exit on transpiler 401 responses.
+- Removed v1 compatibility read paths; v2 commands now require the v2 layout.
+
 # 1.8.3
 - Fix redirects for `raisely local`
 
