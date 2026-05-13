@@ -159,7 +159,6 @@ export async function flushTelemetry() {
 		return;
 	}
 	await Promise.allSettled([...pending]);
-	pending.clear();
 }
 
 export function __resetTelemetryForTests() {
