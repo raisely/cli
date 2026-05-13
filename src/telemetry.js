@@ -9,6 +9,7 @@ const pending = new Set();
 const devHttpsAgent = new https.Agent({
 	rejectUnauthorized: false,
 });
+const TELEMETRY_REQUEST_TIMEOUT_MS = 10_000;
 
 let cachedMetadata;
 let metadataPromise;
@@ -36,12 +37,14 @@ async function fetchAuthenticateContext({ apiUrl, token }) {
 		return {};
 	}
 	try {
+		const signal = AbortSignal.timeout(TELEMETRY_REQUEST_TIMEOUT_MS);
 		const response = await fetch(`${apiUrl.replace(/\/$/, '')}/v3/authenticate`, {
 			method: 'GET',
 			headers: {
 				Authorization: `Bearer ${token}`,
 				'x-raisely-cli': 'true',
 			},
+			signal,
 			agent: devHttpsAgent,
 		});
 		if (!response.ok) {
@@ -126,6 +129,7 @@ async function sendPayload(eventName, traits = {}) {
 		},
 	};
 
+	const signal = AbortSignal.timeout(TELEMETRY_REQUEST_TIMEOUT_MS);
 	await fetch(`${metadata.apiUrl.replace(/\/$/, '')}/v3/t`, {
 		method: 'POST',
 		headers: {
@@ -134,6 +138,7 @@ async function sendPayload(eventName, traits = {}) {
 			...(metadata.token ? { Authorization: `Bearer ${metadata.token}` } : {}),
 		},
 		body: JSON.stringify(payload),
+		signal,
 		agent: devHttpsAgent,
 	});
 }
