@@ -1,16 +1,34 @@
 import { InvalidArgumentError, program } from 'commander';
 import { getPackageInfo } from './helpers.js';
+import { flushTelemetry, trackEvent } from './telemetry.js';
 
 /**
  * Action creator - only loads modules for commands when individually invoked
  * @param moduleLoader
  * @returns {(function(...[*]): Promise<void>)|*}
  */
-function actionBuilder(moduleLoader) {
+function actionBuilder(moduleLoader, commandName) {
 	return async function runtime(...args) {
-		// load the module
-		const { default: commandContext } = await moduleLoader();
-		await commandContext(...args);
+		const startedAt = Date.now();
+		let outcome = 'success';
+		let errorCode;
+		try {
+			// load the module
+			const { default: commandContext } = await moduleLoader();
+			await commandContext(...args);
+		} catch (error) {
+			outcome = 'error';
+			errorCode =
+				error?.subcode || error?.code || error?.status || error?.name;
+			throw error;
+		} finally {
+			trackEvent(`cli.${commandName}`, {
+				outcome,
+				durationMs: Date.now() - startedAt,
+				...(errorCode ? { errorCode } : {}),
+			});
+			await flushTelemetry();
+		}
 	};
 }
 
@@ -23,16 +41,16 @@ function parsePort(value) {
 }
 
 // define actions
-const init = actionBuilder(() => import('./init.js'));
-const update = actionBuilder(() => import('./update.js'));
-const start = actionBuilder(() => import('./start.js'));
-const create = actionBuilder(() => import('./create.js'));
-const deploy = actionBuilder(() => import('./deploy.js'));
-const login = actionBuilder(() => import('./login.js'));
-const logout = actionBuilder(() => import('./logout.js'));
-const local = actionBuilder(() => import('./local.js'));
-const list = actionBuilder(() => import('./list.js'));
-const migrate = actionBuilder(() => import('./migrate.js'));
+const init = actionBuilder(() => import('./init.js'), 'init');
+const update = actionBuilder(() => import('./update.js'), 'update');
+const start = actionBuilder(() => import('./start.js'), 'start');
+const create = actionBuilder(() => import('./create.js'), 'create');
+const deploy = actionBuilder(() => import('./deploy.js'), 'deploy');
+const login = actionBuilder(() => import('./login.js'), 'login');
+const logout = actionBuilder(() => import('./logout.js'), 'logout');
+const local = actionBuilder(() => import('./local.js'), 'local');
+const list = actionBuilder(() => import('./list.js'), 'list');
+const migrate = actionBuilder(() => import('./migrate.js'), 'migrate');
 
 export async function cli() {
 	const pkg = getPackageInfo();
