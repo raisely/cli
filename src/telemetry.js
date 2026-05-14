@@ -42,7 +42,7 @@ async function fetchAuthenticateContext({ apiUrl, token }) {
 			method: 'GET',
 			headers: {
 				Authorization: `Bearer ${token}`,
-				'x-raisely-cli': 'true',
+				'x-raisely-client': 'cli',
 			},
 			signal,
 			agent: devHttpsAgent,
@@ -134,7 +134,7 @@ async function sendPayload(eventName, traits = {}) {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'x-raisely-cli': 'true',
+			'x-raisely-client': 'cli',
 			...(metadata.token ? { Authorization: `Bearer ${metadata.token}` } : {}),
 		},
 		body: JSON.stringify(payload),

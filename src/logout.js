@@ -51,7 +51,7 @@ async function deleteJwtToken(accountKey) {
 			method: 'DELETE',
 			headers: {
 				Authorization: `Bearer ${token}`,
-				'x-raisely-cli': 'true',
+				'x-raisely-client': 'cli',
 			},
 			agent: devHttpsAgent,
 		});
