@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import ora from 'ora';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import fetch from 'node-fetch';
 
 import { loadConfig, defaults, CONFIG_FILE, updateConfig } from './config.js';
