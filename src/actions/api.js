@@ -50,7 +50,7 @@ export default async function api(options) {
 							: {}),
 						...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
 						...options.headers,
-						'x-raisely-cli': true,
+						'x-raisely-client': 'cli',
 					},
 					body:
 						options.method !== 'GET' && options.json
