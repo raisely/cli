@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import https from 'https';
+import { randomUUID } from 'crypto';
 
 import { loadConfig } from './config.js';
 import { getCredentials, resolveOrganisationContext } from './credentials.js';
@@ -13,6 +14,15 @@ const TELEMETRY_REQUEST_TIMEOUT_MS = 10_000;
 
 let cachedMetadata;
 let metadataPromise;
+let sessionId = generateSessionId();
+
+function generateSessionId() {
+	try {
+		return randomUUID();
+	} catch {
+		return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+	}
+}
 
 function telemetryDisabled() {
 	const raw = process.env.RAISELY_NO_TELEMETRY;
@@ -113,11 +123,14 @@ async function sendPayload(eventName, traits = {}) {
 	}
 
 	const payload = {
-		e: eventName,
-		...(metadata.organisationUuid ? { o: metadata.organisationUuid } : {}),
-		...(metadata.userUuid ? { u: metadata.userUuid } : {}),
-		...(metadata.campaignIds[0] ? { c: metadata.campaignIds[0] } : {}),
-		t: {
+		event: eventName,
+		sessionId,
+		...(metadata.organisationUuid
+			? { organisationUuid: metadata.organisationUuid }
+			: {}),
+		...(metadata.userUuid ? { userUuid: metadata.userUuid } : {}),
+		...(metadata.campaignIds[0] ? { campaignUuid: metadata.campaignIds[0] } : {}),
+		traits: {
 			outcome: traits.outcome,
 			durationMs: traits.durationMs,
 			errorCode: traits.errorCode,
@@ -165,4 +178,5 @@ export function __resetTelemetryForTests() {
 	pending.clear();
 	cachedMetadata = undefined;
 	metadataPromise = undefined;
+	sessionId = generateSessionId();
 }
