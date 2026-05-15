@@ -95,7 +95,7 @@ describe('telemetry', () => {
 			'https://api.raisely.com/v3/t',
 			expect.objectContaining({
 				method: 'POST',
-				body: expect.stringContaining('"e":"cli.deploy"'),
+				body: expect.stringContaining('"event":"cli.deploy"'),
 			})
 		);
 		expect(mocks.fetch).toHaveBeenNthCalledWith(
@@ -103,21 +103,25 @@ describe('telemetry', () => {
 			'https://api.raisely.com/v3/t',
 			expect.objectContaining({
 				method: 'POST',
-				body: expect.stringContaining('"e":"cli.update"'),
+				body: expect.stringContaining('"event":"cli.update"'),
 			})
 		);
 
 		const secondPayload = JSON.parse(mocks.fetch.mock.calls[1][1].body);
-		expect(secondPayload.o).toBe('org-auth');
-		expect(secondPayload.u).toBe('user-1');
-		expect(secondPayload.c).toBe('campaign-a');
-		expect(secondPayload.t.campaignIds).toEqual(['campaign-a', 'campaign-b']);
-		expect(secondPayload.t.cliVersion).toBe('2.0.0-test');
-		expect(secondPayload.t.outcome).toBe('success');
-		expect(secondPayload.t.durationMs).toBe(33);
+		expect(secondPayload.organisationUuid).toBe('org-auth');
+		expect(secondPayload.userUuid).toBe('user-1');
+		expect(secondPayload.campaignUuid).toBe('campaign-a');
+		expect(secondPayload.sessionId).toMatch(
+			/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+		);
+		expect(secondPayload.traits.campaignIds).toEqual(['campaign-a', 'campaign-b']);
+		expect(secondPayload.traits.cliVersion).toBe('2.0.0-test');
+		expect(secondPayload.traits.outcome).toBe('success');
+		expect(secondPayload.traits.durationMs).toBe(33);
 
 		const thirdPayload = JSON.parse(mocks.fetch.mock.calls[2][1].body);
-		expect(thirdPayload.t.errorCode).toBe(500);
+		expect(thirdPayload.traits.errorCode).toBe(500);
+		expect(thirdPayload.sessionId).toBe(secondPayload.sessionId);
 		expect(mocks.resolveOrganisationContext).toHaveBeenCalledTimes(1);
 	});
 
