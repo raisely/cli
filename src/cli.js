@@ -51,6 +51,11 @@ const logout = actionBuilder(() => import('./logout.js'), 'logout');
 const local = actionBuilder(() => import('./local.js'), 'local');
 const list = actionBuilder(() => import('./list.js'), 'list');
 const migrate = actionBuilder(() => import('./migrate.js'), 'migrate');
+const mediaList = actionBuilder(() => import('./media/list.js'), 'media.list');
+const mediaDelete = actionBuilder(
+	() => import('./media/delete.js'),
+	'media.delete'
+);
 
 export async function cli() {
 	const pkg = getPackageInfo();
@@ -139,6 +144,35 @@ export async function cli() {
 			'Migrate an existing repo from the v1 layout to the v2 layout (one-shot, idempotent)'
 		)
 		.action(migrate);
+
+	const media = program
+		.command('media')
+		.description('Manage campaign and organisation media assets')
+		.action(function () {
+			this.help();
+		});
+
+	media
+		.command('list')
+		.description('List media for a campaign or organisation')
+		.option(
+			'--campaign <slug>',
+			'Campaign path/slug (defaults to the first campaign in .raisely.json)'
+		)
+		.option('--organisation <uuid>', 'Organisation UUID')
+		.option('--json', 'Output as JSON')
+		.action(mediaList);
+
+	media
+		.command('delete <uuid>')
+		.description('Delete a media asset by UUID')
+		.option(
+			'--campaign <slug>',
+			'Campaign path/slug (defaults to the first campaign in .raisely.json)'
+		)
+		.option('--organisation <uuid>', 'Organisation UUID')
+		.option('--json', 'Output result as JSON')
+		.action(mediaDelete);
 
 	// Make sure we show help after a bad command
 	program.showHelpAfterError();

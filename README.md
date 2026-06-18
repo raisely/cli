@@ -55,6 +55,11 @@ components/
 -   `raisely local` - work locally on a Raisely campaign without syncing changes up (includes local page JSON overrides from `campaigns/<campaign-path>/pages/` when present)
 -   `raisely local --uuid <uuid>` - open a specific campaign by UUID, skipping the picker
 -   `raisely local --port <port>` - run the local development server on a custom port instead of `8015`
+-   `raisely media list` - list all media assets for a campaign or organisation; falls back to the first campaign in `.raisely.json` when no flag is passed
+-   `raisely media list --campaign <slug>` - list media for a specific campaign by path/slug
+-   `raisely media list --organisation <uuid>` - list media for an organisation by UUID
+-   `raisely media list --json` - output the media array as JSON instead of a table
+-   `raisely media delete <uuid>` - delete a media asset by UUID (no confirmation prompt)
 
 ### Custom public host (`raisely local`)
 
