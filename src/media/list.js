@@ -57,30 +57,6 @@ export default async function mediaList(options = {}) {
 		return;
 	}
 
-	const uuidW = Math.max(
-		'uuid'.length,
-		...items.map((i) => (i.uuid ?? '').length)
-	);
-	const fileW = Math.max(
-		'file'.length,
-		...items.map((i) => (i.file ?? '').length)
-	);
-	const typeW = Math.max(
-		'type'.length,
-		...items.map((i) => (i.type ?? '').length)
-	);
-
-	console.log(
-		`${'uuid'.padEnd(uuidW)}  ${'file'.padEnd(fileW)}  ${'type'.padEnd(typeW)}  url`
-	);
-	console.log(
-		`${'-'.repeat(uuidW)}  ${'-'.repeat(fileW)}  ${'-'.repeat(typeW)}  ---`
-	);
-	for (const item of items) {
-		console.log(
-			`${(item.uuid ?? '').padEnd(uuidW)}  ${(item.file ?? '').padEnd(fileW)}  ${(item.type ?? '').padEnd(typeW)}  ${item.url ?? ''}`
-		);
-	}
-	console.log('');
+	console.table(items.map(({ uuid, file, type, url }) => ({ uuid, file, type, url })));
 	console.log(`${items.length} item${items.length === 1 ? '' : 's'}`);
 }
