@@ -15,6 +15,7 @@ const devHttpsAgent = new https.Agent({
 
 function getResponseContentType(response) {
 	const rawResponseContentType = response.headers.get('Content-Type');
+	if (!rawResponseContentType) return '';
 	const [contentType] = rawResponseContentType.split(';');
 	return contentType;
 }
@@ -43,7 +44,7 @@ export default async function api(options) {
 				const response = await fetch(fetchUrl, {
 					method: options.method || 'GET',
 					headers: {
-						...(isJson
+						...(isJson && !options.formData
 							? {
 									'Content-Type': 'application/json',
 							  }
@@ -53,8 +54,12 @@ export default async function api(options) {
 						'x-raisely-client': 'cli',
 					},
 					body:
-						options.method !== 'GET' && options.json
-							? JSON.stringify(options.json)
+						options.method !== 'GET'
+							? (options.rawBody ??
+							  options.formData ??
+							  (options.json
+									? JSON.stringify(options.json)
+									: undefined))
 							: undefined,
 					agent: config.apiUrl ? devHttpsAgent : undefined,
 				});
