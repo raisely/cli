@@ -56,6 +56,10 @@ const mediaDelete = actionBuilder(
 	() => import('./media/delete.js'),
 	'media.delete'
 );
+const mediaUpload = actionBuilder(
+	() => import('./media/upload.js'),
+	'media.upload'
+);
 
 export async function cli() {
 	const pkg = getPackageInfo();
@@ -173,6 +177,18 @@ export async function cli() {
 		.option('--organisation <uuid>', 'Organisation UUID')
 		.option('--json', 'Output result as JSON')
 		.action(mediaDelete);
+
+	media
+		.command('upload <file-or-url>')
+		.description('Upload a file or remote URL as a media asset')
+		.option(
+			'--campaign <slug>',
+			'Campaign path/slug (defaults to the first campaign in .raisely.json)'
+		)
+		.option('--organisation <uuid>', 'Organisation UUID')
+		.option('-f, --force', 'Skip the confirmation prompt')
+		.option('--json', 'Output result as JSON')
+		.action(mediaUpload);
 
 	// Make sure we show help after a bad command
 	program.showHelpAfterError();

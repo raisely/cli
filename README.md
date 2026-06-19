@@ -60,6 +60,11 @@ components/
 -   `raisely media list --organisation <uuid>` - list media for an organisation by UUID
 -   `raisely media list --json` - output the media array as JSON instead of a table
 -   `raisely media delete <uuid>` - delete a media asset by UUID (no confirmation prompt)
+-   `raisely media upload <file-or-url>` - upload a local file or a public URL as a media asset; falls back to the first campaign in `.raisely.json` when no `--campaign` is passed
+-   `raisely media upload <file-or-url> --campaign <slug>` - upload to a specific campaign
+-   `raisely media upload <file-or-url> --organisation <uuid>` - upload to an organisation
+-   `raisely media upload <file-or-url> --force` - skip the confirmation prompt (required for non-interactive/agent use)
+-   `raisely media upload <file-or-url> --json` - skip the confirmation prompt and output the result as JSON
 
 ### Custom public host (`raisely local`)
 
