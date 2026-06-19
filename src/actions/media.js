@@ -1,6 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+import FormData from 'form-data';
+
 import api from './api.js';
 
 const MIME_TYPES = {
@@ -15,22 +17,6 @@ const MIME_TYPES = {
 function mimeTypeForFile(filePath) {
 	const ext = path.extname(filePath).toLowerCase();
 	return MIME_TYPES[ext] ?? 'application/octet-stream';
-}
-
-function buildMultipartBody(data, filename, mimeType) {
-	const boundary = `----RaiselyFormBoundary${Date.now().toString(16)}`;
-	const CRLF = '\r\n';
-	const head = Buffer.from(
-		`--${boundary}${CRLF}` +
-			`Content-Disposition: form-data; name="file"; filename="${filename}"${CRLF}` +
-			`Content-Type: ${mimeType}${CRLF}` +
-			CRLF
-	);
-	const tail = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
-	return {
-		body: Buffer.concat([head, data, tail]),
-		contentType: `multipart/form-data; boundary=${boundary}`,
-	};
 }
 
 export async function listCampaignMedia({ campaign }) {
@@ -70,16 +56,16 @@ export async function uploadCampaignMedia({ campaign, file, url }) {
 		});
 	}
 	const data = await fs.readFile(file);
-	const { body, contentType } = buildMultipartBody(
-		data,
-		path.basename(file),
-		mimeTypeForFile(file)
-	);
+	const form = new FormData();
+	form.append('file', data, {
+		filename: path.basename(file),
+		contentType: mimeTypeForFile(file),
+	});
 	return await api({
 		path: `/campaigns/${campaign}/media`,
 		method: 'POST',
-		rawBody: body,
-		headers: { 'Content-Type': contentType },
+		rawBody: form,
+		headers: { 'Content-Type': form.getHeaders()['content-type'] },
 	});
 }
 
@@ -92,15 +78,15 @@ export async function uploadOrganisationMedia({ organisation, file, url }) {
 		});
 	}
 	const data = await fs.readFile(file);
-	const { body, contentType } = buildMultipartBody(
-		data,
-		path.basename(file),
-		mimeTypeForFile(file)
-	);
+	const form = new FormData();
+	form.append('file', data, {
+		filename: path.basename(file),
+		contentType: mimeTypeForFile(file),
+	});
 	return await api({
 		path: `/organisations/${organisation}/media`,
 		method: 'POST',
-		rawBody: body,
-		headers: { 'Content-Type': contentType },
+		rawBody: form,
+		headers: { 'Content-Type': form.getHeaders()['content-type'] },
 	});
 }
