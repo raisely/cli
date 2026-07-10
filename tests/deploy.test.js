@@ -267,4 +267,69 @@ describe('deploy command', () => {
 		expect(mocks.uploadPage).not.toHaveBeenCalled();
 		expect(process.exitCode).toBeUndefined();
 	});
+
+	test('skips pages without campaignUuid', async () => {
+		mocks.fs.existsSync.mockImplementation(
+			(target) => target !== '/repo/components'
+		);
+		mocks.glob.mockResolvedValue(['campaigns/other/pages/home.json']);
+		mocks.fs.readFileSync.mockImplementation((target) => {
+			if (String(target).endsWith('home.json')) {
+				return JSON.stringify({ uuid: 'page-1', body: [] });
+			}
+			return '';
+		});
+
+		await deploy({});
+
+		expect(mocks.uploadPage).not.toHaveBeenCalled();
+	});
+
+	test('skips pages whose campaignUuid is not configured', async () => {
+		mocks.fs.existsSync.mockImplementation(
+			(target) => target !== '/repo/components'
+		);
+		mocks.glob.mockResolvedValue(['campaigns/other/pages/home.json']);
+		mocks.fs.readFileSync.mockImplementation((target) => {
+			if (String(target).endsWith('home.json')) {
+				return JSON.stringify({
+					uuid: 'page-1',
+					campaignUuid: 'some-other-campaign',
+					body: [],
+				});
+			}
+			return '';
+		});
+
+		await deploy({});
+
+		expect(mocks.uploadPage).not.toHaveBeenCalled();
+	});
+
+	test('uploads pages whose campaignUuid is configured', async () => {
+		mocks.fs.existsSync.mockImplementation(
+			(target) => target !== '/repo/components'
+		);
+		mocks.glob.mockResolvedValue(['campaigns/my-campaign/pages/home.json']);
+		mocks.fs.readFileSync.mockImplementation((target) => {
+			if (String(target).endsWith('home.json')) {
+				return JSON.stringify({
+					uuid: 'page-1',
+					campaignUuid: 'campaign-uuid',
+					body: [],
+				});
+			}
+			return '';
+		});
+
+		await deploy({});
+
+		expect(mocks.uploadPage).toHaveBeenCalledTimes(1);
+		expect(mocks.uploadPage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				uuid: 'page-1',
+				campaignUuid: 'campaign-uuid',
+			})
+		);
+	});
 });
