@@ -1,7 +1,13 @@
 node_modules
+.pnpm-store
 .DS_Store
 
 # dev folders
 stylesheets
 components
 .raisely.json
+.idea
+
+# allow test fixtures even when their folder names match the dev ignores above
+!tests/
+!tests/**

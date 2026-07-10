@@ -1,34 +1,8 @@
 import api from './api.js';
+import { loadBabelCore } from './babel.js';
 
 import path from 'path';
 import fs from 'fs';
-
-let BabelAlreadyLoaded = false;
-
-// Only load the Babel compiling core when needed
-async function loadBabelCore() {
-	const [
-		{ default: Babel },
-		{ default: presetEnv },
-		{ default: presetReact },
-		{ default: classProps },
-	] = await Promise.all([
-		import('@babel/core'),
-		import('@babel/preset-env'),
-		import('@babel/preset-react'),
-		import('@babel/plugin-proposal-class-properties'),
-	]);
-
-	if (!BabelAlreadyLoaded) {
-		Babel.createConfigItem(presetEnv);
-		Babel.createConfigItem(presetReact);
-		Babel.createConfigItem(classProps);
-		// flag as initialized
-		BabelAlreadyLoaded = true;
-	}
-
-	return { Babel, presetEnv, presetReact, classProps };
-}
 
 async function getComponent(uuid, opts = {}) {
 	return await api({

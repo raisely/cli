@@ -1,0 +1,9 @@
+{
+    "uuid": "page-uuid-002",
+    "path": "/",
+    "title": "Home",
+    "name": "home",
+    "status": "published",
+    "body": [],
+    "campaignUuid": "campaign-uuid-two"
+}

@@ -3,22 +3,33 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 
 import { welcome, log, br, error, informUpdate } from './helpers.js';
-import { syncStyles, syncComponents } from './actions/sync.js';
+import { syncStyles, syncComponents, syncPages } from './actions/sync.js';
+import {
+	detectLayout,
+	shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage,
+} from './actions/layout.js';
 import { loadConfig } from './config.js';
 import { getToken } from './actions/auth.js';
 
-export default async function update() {
+export default async function update(options = {}) {
+	const layout = detectLayout(process.cwd());
+	if (shouldRefuseLayoutForCommand('update', layout)) {
+		br();
+		log(getLegacyLayoutRefusalMessage('update', layout), 'red');
+		process.exitCode = 1;
+		return;
+	}
+
 	// load config
 	let config = await loadConfig();
 
 	// Load token, which will prompt a login if the token is expired
 	await getToken(program, config, true);
 
-	const data = {};
-
 	welcome();
 	log(
-		`You are about to update the styles and components in this directory`,
+		`You are about to update the styles, components, and pages in this directory`,
 		'white'
 	);
 	br();
@@ -32,18 +43,19 @@ export default async function update() {
 	log(`You will lose any unsaved changes.`, 'white');
 	br();
 
-	// collect login details
-	const response = await inquirer.prompt([
-		{
-			type: 'confirm',
-			name: 'confirm',
-			message: 'Are you sure you want to continue?',
-		},
-	]);
+	if (!config.cli && !options.force) {
+		const response = await inquirer.prompt([
+			{
+				type: 'confirm',
+				name: 'confirm',
+				message: 'Are you sure you want to continue?',
+			},
+		]);
 
-	if (!response.confirm) {
-		br();
-		return log('Update aborted', 'red');
+		if (!response.confirm) {
+			br();
+			return log('Update aborted', 'red');
+		}
 	}
 
 	// sync down campaign stylesheets
@@ -51,6 +63,9 @@ export default async function update() {
 
 	// sync down custom components
 	await syncComponents();
+
+	// sync down campaign pages
+	await syncPages();
 
 	br();
 	log(

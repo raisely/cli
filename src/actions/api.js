@@ -1,7 +1,13 @@
 import fetch from 'node-fetch';
 import https from 'https';
 import _ from 'lodash';
-import { loadConfig, defaults } from '../config.js';
+import { loadConfig } from '../config.js';
+import {
+	getCredentials,
+	refreshCredentialsForCurrentContext,
+	NotAuthenticatedError,
+} from '../credentials.js';
+import { sleep } from './sleep.js';
 
 const devHttpsAgent = new https.Agent({
 	rejectUnauthorized: false,
@@ -9,12 +15,9 @@ const devHttpsAgent = new https.Agent({
 
 function getResponseContentType(response) {
 	const rawResponseContentType = response.headers.get('Content-Type');
+	if (!rawResponseContentType) return '';
 	const [contentType] = rawResponseContentType.split(';');
 	return contentType;
-}
-
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default async function api(options) {
@@ -24,40 +27,63 @@ export default async function api(options) {
 
 	const fetchUrl = `${config.apiUrl}/v3${options.path}`;
 	const retryConfig = { retry: 3, pause: 5000 };
+	const skipAuth = options.skipAuth === true;
 
 	while (retryConfig.retry > 0) {
 		try {
-			const response = await fetch(
-				fetchUrl,
-				Object.assign(options, {
+			for (let attempt = 0; attempt < 2; attempt++) {
+				let bearer = null;
+				let tokenSource = 'config';
+
+				if (!skipAuth) {
+					const creds = await getCredentials({ allowPrompt: true });
+					bearer = creds.token;
+					tokenSource = creds.source;
+				}
+
+				const response = await fetch(fetchUrl, {
+					method: options.method || 'GET',
 					headers: {
-						...(isJson
+						...(isJson && !options.formData
 							? {
 									'Content-Type': 'application/json',
 							  }
 							: {}),
-						...(config.token
-							? { Authorization: `Bearer ${config.token}` }
-							: {}),
+						...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
 						...options.headers,
-						'x-raisely-cli': true,
+						'x-raisely-client': 'cli',
 					},
 					body:
-						options.method !== 'GET' && options.json
-							? JSON.stringify(options.json)
+						options.method !== 'GET'
+							? (options.rawBody ??
+							  options.formData ??
+							  (options.json
+									? JSON.stringify(options.json)
+									: undefined))
 							: undefined,
 					agent: config.apiUrl ? devHttpsAgent : undefined,
-				})
-			);
+				});
 
-			const contentType = getResponseContentType(response);
-			const responseIsJSON = contentType === 'application/json';
+				if (
+					response.status === 401 &&
+					!skipAuth &&
+					tokenSource === 'keyring' &&
+					attempt === 0
+				) {
+					await response.text();
+					await refreshCredentialsForCurrentContext();
+					continue;
+				}
 
-			const parseFormat = responseIsJSON ? 'json' : 'text';
-			const formatted = await response[parseFormat]();
+				const contentType = getResponseContentType(response);
+				const responseIsJSON = contentType === 'application/json';
 
-			if (response.status >= 399) {
-				const error = {
+				const parseFormat = responseIsJSON ? 'json' : 'text';
+				const formatted = await response[parseFormat]();
+
+				if (response.status < 399) return formatted;
+
+				const err = {
 					message: `${fetchUrl} (${
 						response.status
 					}) failed with message: ${
@@ -68,30 +94,29 @@ export default async function api(options) {
 				};
 
 				if (responseIsJSON && formatted) {
-					// if subcode, add this to error
 					const subcode = _.get(formatted, 'errors[0].subcode');
 					if (subcode) {
-						error.subcode = subcode;
+						err.subcode = subcode;
 					}
 				}
 
-				throw error;
+				throw err;
 			}
-			return formatted;
 		} catch (e) {
+			if (e instanceof NotAuthenticatedError) {
+				throw e.message;
+			}
+
 			retryConfig.retry--;
 
-			// Handle MFA error
 			if (e.subcode && e.subcode.startsWith('MFA required')) {
 				throw e;
 			}
 
-			// Skip hard failures, except a timeout
 			if (e.status <= 500 && e.status !== 408) {
 				throw e.message;
 			}
 
-			// Retries exceeeded
 			if (retryConfig.retry === 0) {
 				throw e.message;
 			}

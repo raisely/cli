@@ -1,48 +1,12 @@
-import jwtDecode from 'jwt-decode';
 import inquirer from 'inquirer';
 import ora from 'ora';
 
 import api from './api.js';
 import { error, log } from '../helpers.js';
-import { doLogin } from '../login.js';
 import { updateConfig } from '../config.js';
+import { getCredentials } from '../credentials.js';
 
-let token = null;
-let tokenExpiresAt = null;
-
-/**
- * Return true if a token has an exp and it's in the past
- * or (if warnEarly is set) in the next 24 hours
- * (easier to update password at the start of the session than notice it needs
- * updating 10 minutes in)
- * @param {boolean} warnEarly If true, a token will be considered expired if it expires in the next 24 hours
- * @returns {boolean}
- */
-function isTokenExpired(warnEarly) {
-	if (tokenExpiresAt) {
-		let expiresThreshold = new Date().getTime();
-		if (warnEarly) {
-			const window = 24 * 60 * 60 * 1000;
-			expiresThreshold += window;
-		}
-		return tokenExpiresAt.getTime() < expiresThreshold;
-	}
-	return false;
-}
-
-function setTokenExpiresAt() {
-	if (tokenExpiresAt === null) {
-		tokenExpiresAt = false;
-		try {
-			const decoded = jwtDecode(token);
-			tokenExpiresAt = new Date(decoded.exp * 1000);
-		} catch (e) {
-			console.warn('Could not decode token, is it a JWT?');
-		}
-	}
-}
-
-async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
+async function checkCorrectOrganisation(orgUuid, opts) {
 	let organisationUuid = orgUuid;
 	if (!organisationUuid) {
 		const permChecker = ora('Checking campaign permissions...').start();
@@ -61,8 +25,6 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 				'Could not retrieve the campaign. Are you switched into the correct organisation?'
 			);
 
-			// A bit hacky, but saves a lot of conditional code all over or
-			// a stacktrace if we rethrow
 			process.exit(-1);
 		}
 	}
@@ -107,40 +69,14 @@ async function checkCorrectOrganisation(orgUuid, opts, currentOrganisation) {
 	}
 }
 
-export async function login(body, opts = {}) {
-	return await api({
-		path: '/login',
-		method: 'POST',
-		json: body,
-	});
-}
-
-export async function logout() {
-	return await api({
-		path: '/logout',
-		method: 'POST',
-	});
-}
-
 export async function getToken(program, opts, warnEarly) {
-	if (opts.$tokenFromEnv) return;
-	let isNewToken = false;
-	let organisationUuid;
-	if (!token) {
-		({ token, organisationUuid } = opts);
-		setTokenExpiresAt();
-		isNewToken = true;
+	if (opts.$tokenFromEnv) {
+		const { token } = await getCredentials({ allowPrompt: false });
+		opts.token = token;
+		return token;
 	}
-	if (isTokenExpired(warnEarly)) {
-		({ token } = await doLogin(
-			'Your token has expired, please login again'
-		));
-		setTokenExpiresAt();
-		await updateConfig({ token });
-		isNewToken = true;
-	}
+	const { token } = await getCredentials();
 	opts.token = token;
-	if (isNewToken) await checkCorrectOrganisation(organisationUuid, opts);
-
+	await checkCorrectOrganisation(opts.organisationUuid, opts);
 	return token;
 }

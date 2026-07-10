@@ -1,13 +1,41 @@
 import glob from 'glob-promise';
-import path from 'path';
 import fs from 'fs';
 import api from './api.js';
+import { resolveCampaignPaths } from './layout.js';
 
-export async function getCampaigns() {
-	return await api({
-		path: '/campaigns',
-		method: 'GET',
-	});
+export async function getCampaigns({ all = false } = {}) {
+	if (!all) {
+		return await api({
+			path: '/campaigns',
+			method: 'GET',
+		});
+	}
+
+	const limit = 100;
+	let offset = 0;
+	const data = [];
+	let pagination;
+
+	while (true) {
+		const page = await api({
+			path: `/campaigns?limit=${limit}&offset=${offset}`,
+			method: 'GET',
+		});
+		data.push(...page.data);
+		pagination = page.pagination;
+		if (page.data.length === 0) {
+			break;
+		}
+		if (pagination?.total != null && data.length >= pagination.total) {
+			break;
+		}
+		if (page.data.length < limit) {
+			break;
+		}
+		offset += limit;
+	}
+
+	return { data, pagination };
 }
 
 export async function getCampaign({ uuid }) {
@@ -24,39 +52,34 @@ export async function getBaseStyles({ uuid }) {
 	});
 }
 
-export async function fetchStyles({ campaign, filename }) {
-	const stylesDir = path.join(process.cwd(), 'stylesheets');
-	const filePath = campaign || filename.split(path.sep)[0];
+export async function fetchStyles({ campaign }) {
+	const { stylesheetsDir, mainScss } = resolveCampaignPaths(
+		process.cwd(),
+		campaign
+	);
 
-	const fullPath = path.join(stylesDir, filePath);
-	const files = await glob(`${fullPath}/**/*.scss`);
+	const files = await glob(`${stylesheetsDir}/**/*.scss`);
 
 	const configFiles = {};
 	for (const file of files) {
 		const fileName = file
-			// `glob` above returns paths with forward slashes only,
-			// so we need to replace potential Windows-style back slashes
-			// before attempting to find and remove the full path.
-			.replace(`${fullPath.replace(/\\/g, '/')}/`, '');
+			// `glob` returns paths with forward slashes only,
+			// so normalise Windows-style back slashes before stripping the prefix.
+			.replace(`${stylesheetsDir.replace(/\\/g, '/')}/`, '');
 
-		// continue if this is the main stylesheet
-
-		if (fileName === `${filePath}.scss`) continue;
+		if (fileName === 'main.scss') continue;
 
 		configFiles[fileName] = fs.readFileSync(file, 'utf8');
 	}
 
 	return {
 		configFiles,
-		css: fs.readFileSync(
-			path.join(stylesDir, filePath, `${filePath}.scss`),
-			'utf8'
-		),
+		css: fs.readFileSync(mainScss, 'utf8'),
 	};
 }
 
-export async function processStyles({ campaign, config }) {
-	const { configFiles, css } = await fetchStyles({ campaign, config });
+export async function processStyles({ campaign }) {
+	const { configFiles, css } = await fetchStyles({ campaign });
 
 	let output = css;
 
@@ -67,18 +90,13 @@ export async function processStyles({ campaign, config }) {
 	return output;
 }
 
-export async function uploadStyles(filename) {
-	// The filename will contain the relative campaign path (needs to be posix)
-	const [campaignPath] = filename.split(path.sep);
-
+export async function uploadStyles(campaignPath) {
 	const campaign = await api({
 		path: `/campaigns/${campaignPath}?private=1`,
 		method: 'GET',
 	});
 
-	const { configFiles, css } = await fetchStyles({
-		filename,
-	});
+	const { configFiles, css } = await fetchStyles({ campaign: campaignPath });
 
 	const data = Object.assign({}, campaign.data.config.css, {
 		files: configFiles,

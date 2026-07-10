@@ -1,140 +1,214 @@
-import { program } from 'commander';
-import inquirer from 'inquirer';
-import ora from 'ora';
-import { login } from './actions/auth.js';
+import { randomBytes, createHash } from 'crypto';
+import express from 'express';
+import open from 'open';
 
-import { updateConfig } from './config.js';
-import { log, error, informUpdate, requiresMfa, getMfaStrategy } from './helpers.js';
+import { welcome, log, br, error, informUpdate } from './helpers.js';
+import { loadConfig, defaults } from './config.js';
+import {
+	oauthRequestToken,
+	saveCredentials,
+	getOAuthClientId,
+	getOAuthScopes,
+} from './credentials.js';
 
-export async function doLogin(message) {
-	if (message) log(message, 'white');
+const CALLBACK_PORTS = [8765, 8766, 8767];
+const LOGIN_TIMEOUT_MS = 2 * 60 * 1000;
 
-	// collect login details
-	const credentials = await inquirer.prompt([
-		{
-			type: 'input',
-			name: 'username',
-			message: 'Enter your email address',
-			validate: (value) =>
-				value.length ? true : 'Please enter your email address',
-		},
-		{
-			type: 'password',
-			message: 'Enter your password',
-			name: 'password',
-			validate: (value) =>
-				value.length ? true : 'Please enter a password',
-		},
-	]);
-
-	// log the user in
-	let loginLoader = ora('Logging you in...').start();
-
+function shutdownOAuthServer(server) {
+	if (!server) return;
 	try {
-		let loginBody = await login({
-			...credentials,
-			requestAdminToken: true,
-		});
-		return loginSucceed(loginLoader, loginBody);
-	} catch (e) {
-		if (requiresMfa(e)) {
-			const mfaStrategy = getMfaStrategy(e)
-			return await loginWith2FA(loginLoader, credentials, mfaStrategy);
-		} else {
-			error(e, loginLoader);
-			return false;
+		if (typeof server.closeAllConnections === 'function') {
+			server.closeAllConnections();
 		}
+		server.close();
+	} catch {
+		// noop
 	}
 }
 
-async function loginWith2FA(loginLoader, credentials, mfaStrategy) {
-	loginLoader.info(`Your account requires 2 factor authentication`);
-	let mfaType = mfaStrategy.mfaType;
-	if (mfaType === 'AUTHENTICATOR_APP' && mfaStrategy.hasAuthy) {
-		const choiceMfa = await selectMfaType();
-		mfaType = choiceMfa.mfaType;
-		if (mfaType === 'AUTHY') {
-			// trigger login again with mfaType to send the prompt
+function base64url(buf) {
+	return buf
+		.toString('base64')
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=/g, '');
+}
+
+/**
+ * OAuth 2.0 Authorization Code + PKCE (loopback). Opens the browser, waits for the callback,
+ * exchanges the code, and stores tokens in the OS keychain.
+ * @returns {Promise<object>} Token response from `/v1/oauth/token`
+ */
+export async function runOAuthLogin() {
+	const config = await loadConfig({ allowEmpty: true });
+	const apiUrl = (config.apiUrl || defaults.apiUrl).replace(/\/$/, '');
+
+	const code_verifier = base64url(randomBytes(32));
+	const code_challenge = base64url(
+		createHash('sha256').update(code_verifier).digest()
+	);
+	const state = base64url(randomBytes(32));
+
+	let server;
+	let redirect_uri;
+	const app = express();
+
+	const paramsBase = {
+		response_type: 'code',
+		client_id: getOAuthClientId(),
+		scope: getOAuthScopes(),
+		state,
+		code_challenge,
+		code_challenge_method: 'S256',
+	};
+
+	const loginPromise = new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			shutdownOAuthServer(server);
+			reject(
+				new Error(
+					'Login timed out after 2 minutes. Run `raisely login` again.'
+				)
+			);
+		}, LOGIN_TIMEOUT_MS);
+
+		const finish = (err, data) => {
+			clearTimeout(timer);
+			shutdownOAuthServer(server);
+			if (err) reject(err);
+			else resolve(data);
+		};
+
+		app.get('/callback', async (req, res) => {
+			res.set('Connection', 'close');
+			const q = req.query;
+			if (q.error) {
+				res.status(400).send(
+					`<!DOCTYPE html><html><body><p>${escapeHtml(
+						String(q.error_description || q.error)
+					)}</p></body></html>`
+				);
+				return finish(
+					new Error(String(q.error_description || q.error || 'OAuth error'))
+				);
+			}
+			if (q.state !== state) {
+				res.status(400).send(
+					'<!DOCTYPE html><html><body><p>Invalid state parameter</p></body></html>'
+				);
+				return finish(new Error('OAuth state mismatch'));
+			}
+			if (!q.code) {
+				res.status(400).send(
+					'<!DOCTYPE html><html><body><p>Missing authorization code</p></body></html>'
+				);
+				return finish(new Error('Missing authorization code'));
+			}
+
 			try {
-				await login({
-					...credentials,
-					mfaType,
-					requestAdminToken: true,
+				const data = await oauthRequestToken(apiUrl, {
+					grant_type: 'authorization_code',
+					client_id: getOAuthClientId(),
+					code: q.code,
+					code_verifier,
+					redirect_uri,
 				});
+
+				await saveCredentials({
+					apiUrl,
+					organisation_uuid: data.organisation_uuid,
+					access_token: data.access_token,
+					refresh_token: data.refresh_token,
+					expires_in: data.expires_in,
+				});
+
+				res.send(
+					`<!DOCTYPE html><html><body><p>You're signed in. You can close this tab and return to the terminal.</p></body></html>`
+				);
+				finish(null, data);
 			} catch (e) {
-				// don't throw error if just an error about missing MFA
-				if (!requiresMfa(e)) {
-					error(e, loginLoader);
-					return false;
+				res.status(500).send(
+					`<!DOCTYPE html><html><body><p>Token exchange failed</p></body></html>`
+				);
+				finish(e);
+			}
+		});
+	});
+
+	for (const port of CALLBACK_PORTS) {
+		redirect_uri = `http://127.0.0.1:${port}/callback`;
+
+		try {
+			await new Promise((resolve, reject) => {
+				server = app.listen(port, '127.0.0.1', () => resolve());
+				server.once('error', reject);
+			});
+			break;
+		} catch {
+			if (server) {
+				try {
+					server.close();
+				} catch {
+					// noop
 				}
 			}
+			server = null;
+			redirect_uri = null;
 		}
 	}
-	try {
-		const response = await inquirer.prompt([
-			{
-				type: 'input',
-				message: 'Please provide your one time password',
-				name: 'otp',
-				validate: (value) =>
-					value.length
-						? true
-						: 'Please enter a one time password',
-			},
-		]);
 
-		loginLoader.info('Logging you in...');
-
-		const loginBody = await login({
-			...credentials,
-			mfaType,
-			otp: response.otp,
-			requestAdminToken: true,
-		});
-		return loginSucceed(loginLoader, loginBody);
-	} catch (e) {
-		error(e, loginLoader);
-		return false;
+	if (!server || !redirect_uri) {
+		throw new Error(
+			`Could not bind to any of ports ${CALLBACK_PORTS.join(
+				', '
+			)}. Close other apps using those ports and try again.`
+		);
 	}
+
+	const params = new URLSearchParams({
+		...paramsBase,
+		redirect_uri,
+	});
+
+	const authorizeUrl = `${apiUrl}/v1/oauth/authorize?${params.toString()}`;
+	log(`If the browser doesn't open automatically, open this URL in your browser to sign in:`, 'yellow');
+	log(authorizeUrl, 'white');
+	br();
+
+	try {
+		await open(authorizeUrl, { background: true });
+	} catch {
+		br();
+		log('Open this URL in your browser to sign in:', 'yellow');
+		log(authorizeUrl, 'white');
+		br();
+	}
+
+	return loginPromise;
 }
 
-async function selectMfaType() {
-	const selectedMfa = await inquirer.prompt([
-		{
-			type: 'list',
-			message: 'Select your preferred MFA',
-			name: 'mfaType',
-			choices:  [
-				{
-					name: 'Authenticator App',
-					value: 'AUTHENTICATOR_APP'
-				},
-				{
-					name: 'SMS/Legacy',
-					value: 'AUTHY'
-				}
-			],
-			validate: (value) =>
-				value.length
-					? true
-					: 'Please choose your preferred MFA',
-		},
-	]);
-	return selectedMfa;
-}
-
-async function loginSucceed(loginLoader, loginBody) {
-	const { token, data: user } = loginBody;
-	loginLoader.succeed();
-	return { user, token };
+function escapeHtml(s) {
+	return s
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/'/g, '&#39;')
+		.replace(/"/g, '&quot;');
 }
 
 export default async function loginAction() {
-	const result = await doLogin();
-	if (!result) return;
-	const { token, user } = result;
-	await updateConfig({
-		token,
-	});
-	await informUpdate();
+	welcome();
+	br();
+	log('Opening the browser to sign you in...', 'white');
+	br();
+
+	try {
+		await runOAuthLogin();
+		log('You are signed in. Credentials are stored in your OS keychain.', 'green');
+		br();
+		await informUpdate();
+	} catch (e) {
+		error(e);
+		process.exitCode = 1;
+	}
 }

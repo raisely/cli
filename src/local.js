@@ -1,12 +1,12 @@
 import { program } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import path from 'path';
 import inquirer from 'inquirer';
 import express from 'express';
 import open from 'open';
-import sass from 'node-sass';
+import fetch from 'node-fetch';
 import { hashElement } from 'folder-hash';
+import zlib from 'zlib';
 import * as fzstd from 'fzstd';
 
 import {
@@ -16,17 +16,272 @@ import {
 
 import { welcome, log, br, error, informUpdate } from './helpers.js';
 
-import { processStyles, getBaseStyles } from './actions/campaigns.js';
+import {
+	processStyles,
+	getBaseStyles,
+	getCampaigns,
+	getCampaign,
+} from './actions/campaigns.js';
 import { compileComponents } from './actions/components.js';
-import { getCampaigns } from './actions/campaigns.js';
+import {
+	compileAllLocalPages,
+	buildPageOverrideScript,
+} from './actions/pages.js';
+import { sleep } from './actions/sleep.js';
 import { getToken } from './actions/auth.js';
 import { loadConfig } from './config.js';
+import {
+	detectLayout,
+	shouldRefuseLayoutForCommand,
+	getLegacyLayoutRefusalMessage,
+} from './actions/layout.js';
 
 // local development config
-const PORT = 8015;
+const DEFAULT_PORT = 8015;
+const DEFAULT_API_URL = 'https://api.raisely.com';
+const DEFAULT_SASS_TRANSPILER_URL = 'https://sass-transpiler.raisely.com';
+const DEFAULT_TRANSPILE_RETRY_DELAY_MS = 500;
 
-export default async function start() {
+/**
+ * Build a small script that, only when the user has opted into a non-prod API,
+ * rewrites browser API calls from https://api.raisely.com to config.apiUrl.
+ *
+ * The campaign's frontend bundle picks its API host from window.location.hostname,
+ * so when it's loaded over localhost it falls through to api.raisely.com.
+ * Patching fetch/XHR sidesteps that resolver without changing the bundle.
+ *
+ * Returns an empty string when apiUrl is the production default, so prod/staging
+ * users get exactly the previous behavior.
+ */
+function buildApiRedirectScript(apiUrl) {
+	if (!apiUrl || apiUrl === DEFAULT_API_URL) return '';
+	const target = apiUrl.replace(/\/$/, '');
+	return `
+<script>
+(function () {
+	var FROM = ${JSON.stringify(DEFAULT_API_URL)};
+	var TO = ${JSON.stringify(target)};
+	function rewrite(url) {
+		if (typeof url !== 'string') return url;
+		return url.indexOf(FROM) === 0 ? TO + url.slice(FROM.length) : url;
+	}
+	var originalFetch = window.fetch;
+	if (originalFetch) {
+		window.fetch = function (input, init) {
+			if (typeof input === 'string') {
+				return originalFetch(rewrite(input), init);
+			}
+			if (input && typeof input.url === 'string' && input.url.indexOf(FROM) === 0) {
+				return originalFetch(new Request(rewrite(input.url), input), init);
+			}
+			return originalFetch(input, init);
+		};
+	}
+	var XHR = window.XMLHttpRequest;
+	if (XHR && XHR.prototype && XHR.prototype.open) {
+		var originalOpen = XHR.prototype.open;
+		XHR.prototype.open = function (method, url) {
+			arguments[1] = rewrite(url);
+			return originalOpen.apply(this, arguments);
+		};
+	}
+})();
+</script>
+`;
+}
+
+function decompressZstdBuffer(responseBuffer) {
+	return new Promise((resolve, reject) => {
+		const decompressedChunks = [];
+		const decompressStream = new fzstd.Decompress((chunk, isLast) => {
+			decompressedChunks.push(chunk);
+			if (isLast) {
+				resolve(Buffer.concat(decompressedChunks).toString('utf8'));
+			}
+		});
+		try {
+			decompressStream.push(responseBuffer);
+			decompressStream.push(new Uint8Array(0), true);
+		} catch (error) {
+			reject(error);
+		}
+	});
+}
+
+/** Decode proxied body; encoding may be zstd, br, gzip, or plain (already decompressed). */
+async function decodeProxyResponseBuffer(responseBuffer, proxyRes) {
+	const enc = String(proxyRes.headers['content-encoding'] || '').toLowerCase();
+	try {
+		if (enc.includes('zstd')) {
+			return await decompressZstdBuffer(responseBuffer);
+		}
+		if (enc.includes('br')) {
+			return zlib.brotliDecompressSync(responseBuffer).toString('utf8');
+		}
+		if (enc.includes('gzip')) {
+			return zlib.gunzipSync(responseBuffer).toString('utf8');
+		}
+	} catch {
+		// Middleware may have already decompressed while leaving a stale encoding header.
+	}
+	return responseBuffer.toString('utf8');
+}
+
+function buildCssErrorComment(errorMessage) {
+	return `/*\n${errorMessage}\n*/`;
+}
+
+function hasLastGoodCss(css) {
+	return typeof css === 'string' && css.length > 0;
+}
+
+export function createStylesRouteHandler({
+	campaignPath,
+	baseStyles,
+	token,
+	processStylesFn = processStyles,
+	fetchFn = fetch,
+	logs = console,
+	retryDelayMs = DEFAULT_TRANSPILE_RETRY_DELAY_MS,
+	waitFn = sleep,
+	transpilerUrl = process.env.SASS_TRANSPILER_URL?.trim() || DEFAULT_SASS_TRANSPILER_URL,
+}) {
+	let lastGoodCss = '';
+	let nextStylesRequestId = 0;
+	let lastAppliedStylesRequestId = 0;
+
+	const transpileEndpoint = `${transpilerUrl.replace(/\/$/, '')}/transpile`;
+
+	function sendFallback(res, errorText = '') {
+		if (hasLastGoodCss(lastGoodCss)) {
+			res.send(lastGoodCss);
+			return;
+		}
+
+		if (errorText) {
+			res.status(502).send(buildCssErrorComment(errorText));
+			return;
+		}
+
+		res.sendStatus(502);
+	}
+
+	async function transpileStyles(fullStyles) {
+		const response = await fetchFn(transpileEndpoint, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/scss',
+				Authorization: `Bearer ${token}`,
+			},
+			body: fullStyles,
+		});
+		const bodyText = await response.text();
+		return { response, bodyText };
+	}
+
+	async function transpileStylesWithSingleRetry(fullStyles) {
+		let firstError = null;
+		let firstResult = null;
+
+		try {
+			firstResult = await transpileStyles(fullStyles);
+		} catch (err) {
+			firstError = err;
+		}
+
+		const shouldRetry =
+			firstError !== null ||
+			(firstResult !== null && firstResult.response.status >= 500);
+
+		if (!shouldRetry) {
+			if (firstResult !== null) {
+				return firstResult;
+			}
+			throw new Error(
+				'Unexpected transpile state: missing result and error before retry'
+			);
+		}
+
+		await waitFn(retryDelayMs);
+
+		try {
+			return await transpileStyles(fullStyles);
+		} catch (retryErr) {
+			if (firstError) {
+				logs.error(firstError);
+			}
+			throw retryErr;
+		}
+	}
+
+	return async function stylesRouteHandler(req, res) {
+		res.set('Content-Type', 'text/css');
+		const stylesRequestId = ++nextStylesRequestId;
+
+		let styles;
+		try {
+			styles = await processStylesFn({ campaign: campaignPath });
+		} catch (err) {
+			logs.error(err);
+			sendFallback(res);
+			return;
+		}
+
+		const fullStyles = baseStyles + styles;
+		let transpileResult;
+		try {
+			transpileResult = await transpileStylesWithSingleRetry(fullStyles);
+		} catch (err) {
+			logs.error(err);
+			sendFallback(res);
+			return;
+		}
+
+		const { response, bodyText } = transpileResult;
+
+		if (response.ok) {
+			if (stylesRequestId >= lastAppliedStylesRequestId) {
+				lastGoodCss = bodyText;
+				lastAppliedStylesRequestId = stylesRequestId;
+			}
+			res.send(bodyText);
+			return;
+		}
+
+		if (response.status >= 400 && response.status < 500) {
+			if (response.status === 401) {
+				logs.warn(
+					'SASS transpiler returned 401; your token may be stale. Run `raisely login` if this keeps happening.'
+				);
+			}
+			if (bodyText) {
+				logs.error(bodyText);
+			}
+			sendFallback(res, bodyText);
+			return;
+		}
+
+		if (bodyText) {
+			logs.error(bodyText);
+		}
+		logs.error(
+			`SASS transpiler failed after retry: ${response.status} ${response.statusText}`
+		);
+		sendFallback(res);
+	};
+}
+
+export default async function start(options = {}) {
+	const layout = detectLayout(process.cwd());
+	if (shouldRefuseLayoutForCommand('local', layout)) {
+		br();
+		log(getLegacyLayoutRefusalMessage('local', layout), 'red');
+		process.exitCode = 1;
+		return;
+	}
+
 	welcome();
+	const port = options.port || DEFAULT_PORT;
 
 	// load config
 	const config = await loadConfig();
@@ -36,37 +291,50 @@ export default async function start() {
 
 	await informUpdate();
 
-	// in-memory state object
-	const data = {};
+	let campaignPath;
+	let campaignUuid;
 
-	// load the campaigns
-	const campaignsLoader = ora('Loading your campaigns...').start();
-	try {
-		data.campaigns = await getCampaigns({}, config.token, {
-			apiUrl: program.api,
-			...config,
-		});
-		campaignsLoader.succeed();
-	} catch (e) {
-		return error(e, campaignsLoader);
+	if (options.uuid) {
+		const loader = ora(`Loading campaign ${options.uuid}...`).start();
+		try {
+			const { data: campaign } = await getCampaign({ uuid: options.uuid });
+			loader.succeed(`Using campaign: ${campaign.name} (${campaign.path})`);
+			campaignPath = campaign.path;
+			campaignUuid = campaign.uuid;
+		} catch (e) {
+			return error(e, loader);
+		}
+	} else {
+		// in-memory state object
+		const data = {};
+
+		// load the campaigns
+		const campaignsLoader = ora('Loading your campaigns...').start();
+		try {
+			data.campaigns = await getCampaigns();
+			campaignsLoader.succeed();
+		} catch (e) {
+			return error(e, campaignsLoader);
+		}
+
+		// select the campaigns to sync
+		const campaign = await inquirer.prompt([
+			{
+				type: 'list',
+				name: 'path',
+				message: 'Select the campaign to open:',
+				choices: data.campaigns.data.map((c) => ({
+					name: `${c.name} (${c.path})`,
+					value: c.path,
+					short: c.path,
+				})),
+			},
+		]);
+		campaignPath = campaign.path;
+		campaignUuid = data.campaigns.data.find(
+			(c) => c.path === campaign.path
+		).uuid;
 	}
-
-	// select the campaigns to sync
-	const campaign = await inquirer.prompt([
-		{
-			type: 'list',
-			name: 'path',
-			message: 'Select the campaign to open:',
-			choices: data.campaigns.data.map((c) => ({
-				name: `${c.name} (${c.path})`,
-				value: c.path,
-				short: c.path,
-			})),
-		},
-	]);
-	const campaignUuid = data.campaigns.data.find(
-		(c) => c.path === campaign.path
-	).uuid;
 
 	// fetch base styles from the API
 	const base = await getBaseStyles({
@@ -75,15 +343,15 @@ export default async function start() {
 
 	// determine proxy target
 	const target = config.proxyUrl
-		? config.proxyUrl.replace('https://', `https://${campaign.path}.`)
-		: `https://${campaign.path}.raisely.com`;
+		? config.proxyUrl.replace('https://', `https://${campaignPath}.`)
+		: `https://${campaignPath}.raisely.com`;
 
 	const app = express();
 
 	app.use('/reload', async (req, res) => {
 		const hash = await hashElement('.', {
 			files: {
-				include: ['**/*.js', '**/*.scss'],
+				include: ['**/*.js', '**/*.scss', '**/*.json'],
 			},
 			folders: {
 				exclude: ['.*', 'node_modules', 'src', '.git', 'bin'],
@@ -93,27 +361,14 @@ export default async function start() {
 	});
 
 	// locally compile css files
-	app.use(`/v3/campaigns/${campaignUuid}/styles.css`, async (req, res) => {
-		res.set('Content-Type', 'text/css');
-
-		try {
-			// get the local styles to append
-			const styles = await processStyles({
-				campaign: campaign.path,
-			});
-
-			// run through SASS
-			const compiled = sass.renderSync({
-				data: base + styles,
-				outputStyle: 'expanded',
-			});
-
-			res.send(compiled.css);
-		} catch (e) {
-			console.error(e);
-			res.sendStatus(500);
-		}
-	});
+	app.use(
+		`/v3/campaigns/${campaignUuid}/styles.css`,
+		createStylesRouteHandler({
+			campaignPath,
+			baseStyles: base,
+			token: config.token,
+		})
+	);
 
 	// locally compile components
 	app.use(`/v3/campaigns/${campaignUuid}/components.js`, async (req, res) => {
@@ -140,40 +395,80 @@ export default async function start() {
 			selfHandleResponse: true,
 			onProxyRes: responseInterceptor(
 				async (responseBuffer, proxyRes, req, res) => {
-					// convert zstd compressed buffer to string
-					const response = await new Promise((resolve, reject) => {
-						// trans
-						const decompressedChunks = [];
-						const decompressStream = new fzstd.Decompress((chunk, isLast) => {
-							// Add to list of decompressed chunks
-							decompressedChunks.push(chunk);
-							if (isLast) {
-								resolve(Buffer.concat(decompressedChunks).toString('utf8'));
-							}
-						});
+					const response = await decodeProxyResponseBuffer(
+						responseBuffer,
+						proxyRes
+					);
+
+					let pageOverride = '';
+					if (response.includes('window.pageSchemas')) {
 						try {
-							decompressStream.push(responseBuffer);
-							decompressStream.push(new Uint8Array(0), true); // Need to tell the stream that it's ended
-						} catch (error) {
-							reject(error)
+							const compiledMap = await compileAllLocalPages({
+								campaignUuid,
+							});
+							pageOverride = buildPageOverrideScript(compiledMap);
+						} catch (e) {
+							console.error(e);
 						}
-					});
-					return response
+					}
+
+					// Match by path so it works regardless of whether the upstream
+					// embeds api.raisely.com, api.raisely.test:2999, or any other host.
+					const stylesPath = `/v3/campaigns/${campaignUuid}/styles.css`;
+					const componentsPath = `/v3/campaigns/${campaignUuid}/components.js`;
+					const localBase = `http://localhost:${port}`;
+					const upstreamUrlRe = (path) =>
+						new RegExp(
+							`https?://[^"'\\s)]+${path.replace(/[/.]/g, '\\$&')}`,
+							'g'
+						);
+
+					let output = response
+						.replace(upstreamUrlRe(stylesPath), `${localBase}${stylesPath}`)
 						.replace(
-							`${
-								config.apiUrl || 'https://api.raisely.com'
-							}/v3/campaigns/${campaignUuid}/styles.css`,
-							`http://localhost:${PORT}/v3/campaigns/${campaignUuid}/styles.css`
-						)
-						.replace(
-							`${
-								config.apiUrl || 'https://api.raisely.com'
-							}/v3/campaigns/${campaignUuid}/components.js`,
-							`http://localhost:${PORT}/v3/campaigns/${campaignUuid}/components.js`
-						)
-						.replace(
-							'</head>',
-							`
+							upstreamUrlRe(componentsPath),
+							`${localBase}${componentsPath}`
+						);
+
+					// window.pageSchemas is set in the first large <script> in <body>.
+					// Inject after that </script> but before later bundles (and before the small
+					// `if (window.campaign)` script). Edge strips <!-- _footer_integrations_ -->
+					// before HTML is sent, and injecting before </body> runs too late (React
+					// already read pageSchemas).
+					if (pageOverride) {
+						const afterCampaignBootstrap =
+							/(<\/script>)(\s*<script>\s*if\s*\(\s*window\.campaign\s*\)\s*\{)/;
+						if (afterCampaignBootstrap.test(output)) {
+							output = output.replace(
+								afterCampaignBootstrap,
+								`$1${pageOverride}$2`
+							);
+						} else if (
+							output.includes('<!-- _footer_integrations_ -->')
+						) {
+							output = output.replace(
+								'<!-- _footer_integrations_ -->',
+								`${pageOverride}\n<!-- _footer_integrations_ -->`
+							);
+						} else {
+							output = output.replace(
+								'</body>',
+								`${pageOverride}\n</body>`
+							);
+						}
+					}
+
+					const apiRedirectScript = buildApiRedirectScript(config.apiUrl);
+					if (apiRedirectScript) {
+						output = output.replace(
+							/<head([^>]*)>/i,
+							`<head$1>${apiRedirectScript}`
+						);
+					}
+
+					return output.replace(
+						'</head>',
+						`
 									<script>
 										const check = () => {
 											fetch('/reload')
@@ -190,13 +485,13 @@ export default async function start() {
 										var raiselyReload = setInterval(check, 500);
 									</script>
 								</head>`
-						);
+					);
 				}
 			),
 		})
 	);
 
-	app.listen(PORT);
+	app.listen(port);
 
 	log(`Local development for ${target} has been set up in:`, 'white');
 	br();
@@ -207,10 +502,18 @@ export default async function start() {
 		console.log(`Using custom API: ${chalk.inverse(config.apiUrl)}`);
 		br();
 	}
-	log(`Opening your development site now...`, 'white');
+	if (options.open) {
+		log(`Opening your development site now...`, 'white');
+	} else {
+		log(`Your development site:`, 'white');
+	}
+	log(`http://localhost:${port}`, 'white');
+	br();
 	log(`Use CTRL + C to stop`, 'white');
 
-	open(`http://localhost:${PORT}`, {
-		background: true,
-	});
+	if (options.open) {
+		open(`http://localhost:${port}`, {
+			background: true,
+		});
+	}
 }
