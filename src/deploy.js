@@ -268,7 +268,7 @@ export default async function deploy(options = {}) {
 			continue;
 		}
 		if (
-			pageData.campaignUuid &&
+			!pageData.campaignUuid ||
 			!config.campaigns.includes(pageData.campaignUuid)
 		) {
 			continue;
