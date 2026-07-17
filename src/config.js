@@ -107,6 +107,12 @@ export async function loadConfig({ allowEmpty = false } = {}) {
 			}
 		}
 	}
+
+	// Override the API URL if it's set in the environment variables
+	if (process.env.RAISELY_API_URL) {
+		config.apiUrl = process.env.RAISELY_API_URL;
+	}
+
 	return Object.assign({}, defaults, config);
 }
 

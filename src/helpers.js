@@ -129,7 +129,7 @@ export function error(e, loader) {
 }
 
 export function requiresMfa(e) {
-	return e.subcode && e.subcode.startsWith('MFA required');
+	return e.subcode && e.subcode.startsWith('MFA required') || e.twoFactorId;
 }
 
 export function getMfaStrategy(e) {
@@ -138,6 +138,8 @@ export function getMfaStrategy(e) {
 	const authType = subcodeArray[1];
 
 	return {
+		twoFactorId: e.twoFactorId,
+		moreOtpMethods: e.moreOtpMethods,
 		mfaType: authType,
 		// if authenticator, we need to know whether to offer authy as alternative
 		hasAuthy:  Boolean(
