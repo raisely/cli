@@ -70,8 +70,17 @@ export default async function api(options) {
 				if (responseIsJSON && formatted) {
 					// if subcode, add this to error
 					const subcode = _.get(formatted, 'errors[0].subcode');
+					const twoFactorId = _.get(formatted, 'errors[0].twoFactorId');
+					const moreOtpMethods = _.get(formatted, 'errors[0].more.otpMethods');
+
 					if (subcode) {
 						error.subcode = subcode;
+					}
+					if (twoFactorId) {
+						error.twoFactorId = twoFactorId;
+					}
+					if (moreOtpMethods) {
+						error.moreOtpMethods = moreOtpMethods;
 					}
 				}
 

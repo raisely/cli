@@ -9,23 +9,33 @@ import { log, error, informUpdate, requiresMfa, getMfaStrategy } from './helpers
 export async function doLogin(message) {
 	if (message) log(message, 'white');
 
-	// collect login details
-	const credentials = await inquirer.prompt([
-		{
-			type: 'input',
-			name: 'username',
-			message: 'Enter your email address',
-			validate: (value) =>
-				value.length ? true : 'Please enter your email address',
-		},
-		{
-			type: 'password',
-			message: 'Enter your password',
-			name: 'password',
-			validate: (value) =>
-				value.length ? true : 'Please enter a password',
-		},
-	]);
+	const debugCreds = {
+		username: process.env.DEBUG_USERNAME,
+		password: process.env.DEBUG_PASSWORD,
+	}
+
+	let credentials = {};
+	if (debugCreds.username && debugCreds.password) {
+		credentials = debugCreds;
+	} else {
+		// collect login details
+		credentials = await inquirer.prompt([
+			{
+				type: 'input',
+				name: 'username',
+				message: 'Enter your email address',
+				validate: (value) =>
+					value.length ? true : 'Please enter your email address',
+			},
+			{
+				type: 'password',
+				message: 'Enter your password',
+				name: 'password',
+				validate: (value) =>
+					value.length ? true : 'Please enter a password',
+			},
+		]);
+	}
 
 	// log the user in
 	let loginLoader = ora('Logging you in...').start();
@@ -50,6 +60,8 @@ export async function doLogin(message) {
 async function loginWith2FA(loginLoader, credentials, mfaStrategy) {
 	loginLoader.info(`Your account requires 2 factor authentication`);
 	let mfaType = mfaStrategy.mfaType;
+
+	// FIXME: This is legacy. We don't support Authy anymore.
 	if (mfaType === 'AUTHENTICATOR_APP' && mfaStrategy.hasAuthy) {
 		const choiceMfa = await selectMfaType();
 		mfaType = choiceMfa.mfaType;
@@ -70,6 +82,32 @@ async function loginWith2FA(loginLoader, credentials, mfaStrategy) {
 			}
 		}
 	}
+
+	let twoFactorId = mfaStrategy.twoFactorId;
+	let otpMethod = undefined;
+
+	if (mfaStrategy.moreOtpMethods) {
+		const choiceOtpMethod = await selectOtpMethod(mfaStrategy.moreOtpMethods);
+		otpMethod = choiceOtpMethod.otpMethod;
+
+		try {
+			await login({
+				...credentials,
+				mfaType,
+				otpMethod, // forces an specific OTP method
+				requestAdminToken: true,
+			});
+		} catch (e) {
+			if (requiresMfa(e)) {
+				const mfaStrategy = getMfaStrategy(e)
+				twoFactorId = mfaStrategy.twoFactorId;
+			} else {
+				error(e, loginLoader);
+				return false;
+			}
+		}
+	}
+
 	try {
 		const response = await inquirer.prompt([
 			{
@@ -90,12 +128,29 @@ async function loginWith2FA(loginLoader, credentials, mfaStrategy) {
 			mfaType,
 			otp: response.otp,
 			requestAdminToken: true,
+			twoFactorId,
+			otpMethod,
 		});
 		return loginSucceed(loginLoader, loginBody);
 	} catch (e) {
 		error(e, loginLoader);
 		return false;
 	}
+}
+
+async function selectOtpMethod(moreOtpMethods) {
+	const selectedOtpMethod = await inquirer.prompt([
+		{
+			type: 'list',
+			message: 'Select your preferred OTP method',
+			name: 'otpMethod',
+			choices: moreOtpMethods.map(method => ({
+				name: method,
+				value: method,
+			})),
+		},
+	]);
+	return selectedOtpMethod;
 }
 
 async function selectMfaType() {
