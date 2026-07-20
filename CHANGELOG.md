@@ -6,6 +6,9 @@
 - Improved `raisely local` resilience by serving the last successful CSS when compilation fails, removing the 5-second retry loop, and removing process exit on transpiler 401 responses.
 - Removed v1 compatibility read paths; v2 commands now require the v2 layout.
 
+# 1.8.4
+- Fix MFA login flow
+
 # 1.8.3
 - Fix redirects for `raisely local`
 
