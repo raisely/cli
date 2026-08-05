@@ -226,6 +226,7 @@ export default async function deploy(options = {}) {
 	const componentsDir = path.join(cwd, 'components');
 	if (fs.existsSync(componentsDir)) {
 		for (const file of fs.readdirSync(componentsDir)) {
+			if (!fs.statSync(path.join(componentsDir, file)).isDirectory()) continue;
 			const data = {
 				file: fs.readFileSync(path.join(componentsDir, file, `${file}.js`), 'utf8'),
 				config: JSON.parse(
