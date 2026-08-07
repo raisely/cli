@@ -29,6 +29,105 @@ function createOraHarness() {
 	return { oraFn, loaders };
 }
 
+describe('start page uploads', () => {
+	function pageFs(contents) {
+		return {
+			readFileSync() {
+				return contents;
+			},
+		};
+	}
+
+	test('saving a page uploads it', async () => {
+		const uploaded = [];
+		const { oraFn, loaders } = createOraHarness();
+
+		await handleCampaignChange(
+			'/repo/campaigns/acme/pages/home.json',
+			{
+				campaignsDir: '/repo/campaigns',
+				config: { campaigns: ['campaign-1'] },
+				fsModule: pageFs(
+					'{"uuid":"page-1","campaignUuid":"campaign-1","title":"Home"}'
+				),
+				uploadPageFn: async (pageData) => {
+					uploaded.push(pageData);
+				},
+				oraFn,
+			}
+		);
+
+		assert.equal(uploaded.length, 1);
+		assert.equal(uploaded[0].uuid, 'page-1');
+		assert.equal(loaders[0].succeeded, true);
+	});
+
+	test('skips a page belonging to a campaign that is not configured', async () => {
+		let uploadCalls = 0;
+		const { oraFn, loaders } = createOraHarness();
+
+		await handleCampaignChange(
+			'/repo/campaigns/acme/pages/home.json',
+			{
+				campaignsDir: '/repo/campaigns',
+				config: { campaigns: ['campaign-1'] },
+				fsModule: pageFs(
+					'{"uuid":"page-1","campaignUuid":"other-campaign"}'
+				),
+				uploadPageFn: async () => {
+					uploadCalls += 1;
+				},
+				oraFn,
+			}
+		);
+
+		assert.equal(uploadCalls, 0);
+		assert.equal(loaders[0].succeeded, false);
+	});
+
+	test('skips a page with no uuid', async () => {
+		let uploadCalls = 0;
+		const { oraFn, loaders } = createOraHarness();
+
+		await handleCampaignChange(
+			'/repo/campaigns/acme/pages/home.json',
+			{
+				campaignsDir: '/repo/campaigns',
+				config: { campaigns: ['campaign-1'] },
+				fsModule: pageFs('{"campaignUuid":"campaign-1"}'),
+				uploadPageFn: async () => {
+					uploadCalls += 1;
+				},
+				oraFn,
+			}
+		);
+
+		assert.equal(uploadCalls, 0);
+		assert.equal(loaders[0].succeeded, false);
+	});
+
+	test('does not upload a half-written page that is invalid JSON', async () => {
+		let uploadCalls = 0;
+		const { oraFn, loaders } = createOraHarness();
+
+		await handleCampaignChange(
+			'/repo/campaigns/acme/pages/home.json',
+			{
+				campaignsDir: '/repo/campaigns',
+				config: { campaigns: ['campaign-1'] },
+				fsModule: pageFs('{"uuid":"page-1",'),
+				uploadPageFn: async () => {
+					uploadCalls += 1;
+				},
+				oraFn,
+			}
+		);
+
+		assert.equal(uploadCalls, 0);
+		assert.equal(loaders[0].succeeded, false);
+	});
+});
+
 describe('start per-save validation', () => {
 	test('bad SCSS save fails inline and skips upload', async () => {
 		let uploadCalls = 0;
