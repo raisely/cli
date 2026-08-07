@@ -110,6 +110,7 @@ export async function compileComponents() {
 	const componentsDir = path.join(process.cwd(), 'components');
 	const components = [];
 	for (const file of fs.readdirSync(componentsDir)) {
+		if (!fs.statSync(path.join(componentsDir, file)).isDirectory()) continue;
 		const component = {
 			name: file,
 			latestHtml: fs.readFileSync(

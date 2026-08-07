@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
 		existsSync: vi.fn(),
 		readdirSync: vi.fn(),
 		readFileSync: vi.fn(),
+		statSync: vi.fn(),
 	};
 
 	const ora = vi.fn((label) => {
@@ -141,6 +142,7 @@ function setDefaultMocks() {
 		if (target === '/repo/components') return [];
 		return [];
 	});
+	mocks.fs.statSync.mockReturnValue({ isDirectory: () => true });
 }
 
 describe('deploy command', () => {
@@ -265,6 +267,31 @@ describe('deploy command', () => {
 
 		expect(mocks.uploadStyles).toHaveBeenCalledTimes(1);
 		expect(mocks.uploadPage).not.toHaveBeenCalled();
+		expect(process.exitCode).toBeUndefined();
+	});
+
+	test('skips non-directory entries (e.g. .DS_Store) in the components directory', async () => {
+		mocks.fs.readdirSync.mockImplementation((target, options) => {
+			if (options && options.withFileTypes) return [];
+			if (target === '/repo/components') return ['.DS_Store', 'hero'];
+			return [];
+		});
+		mocks.fs.statSync.mockImplementation((target) => ({
+			isDirectory: () => !String(target).endsWith('.DS_Store'),
+		}));
+		mocks.fs.readFileSync.mockImplementation((target) => {
+			if (String(target).endsWith('hero.json')) return '{}';
+			return '';
+		});
+
+		await deploy({});
+
+		expect(mocks.fs.readFileSync).not.toHaveBeenCalledWith(
+			expect.stringContaining('.DS_Store'),
+			expect.anything()
+		);
+		expect(mocks.updateComponentConfig).toHaveBeenCalledTimes(1);
+		expect(mocks.updateComponentFile).toHaveBeenCalledTimes(1);
 		expect(process.exitCode).toBeUndefined();
 	});
 
