@@ -33,9 +33,14 @@ async function checkCorrectOrganisation(orgUuid, opts) {
 		const authData = await api({
 			path: '/authenticate',
 		});
-		if (authData.organisationUuid !== organisationUuid) {
+		// /authenticate returns identity flat at the top level. It also has a
+		// `data` key, but that holds OAuth authorization metadata
+		// (type/scopes/appUuid/authorizationUuid), not identity, so it must not
+		// be treated as a response envelope.
+		const authBody = authData ?? {};
+		if (authBody.organisationUuid !== organisationUuid) {
 			log(
-				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${authData.organisationUuid}`,
+				`This configuration is for organisation ${organisationUuid} but you are currently in organisation ${authBody.organisationUuid}`,
 				'white'
 			);
 			const response = await inquirer.prompt([
@@ -46,12 +51,19 @@ async function checkCorrectOrganisation(orgUuid, opts) {
 				},
 			]);
 			if (response.confirm) {
+				if (!authBody.userUuid) {
+					log(
+						'Your session does not identify a user, so the CLI cannot switch organisations for you. Switch organisation in the Raisely admin, then run raisely init again.',
+						'red'
+					);
+					return;
+				}
 				const loader = ora(
 					'Switching to correct organisation ...'
 				).start();
 				try {
 					await api({
-						path: `/users/${authData.userUuid}/move`,
+						path: `/users/${authBody.userUuid}/move`,
 						method: 'PUT',
 						json: {
 							data: {

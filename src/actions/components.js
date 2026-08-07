@@ -1,5 +1,6 @@
 import api from './api.js';
 import { loadBabelCore } from './babel.js';
+import { loadConfig } from '../config.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -15,11 +16,45 @@ async function getComponent(uuid, opts = {}) {
 	});
 }
 
+async function resolveOrganisationUuid() {
+	const config = await loadConfig({ allowEmpty: true });
+	if (config.organisationUuid) {
+		return config.organisationUuid;
+	}
+
+	try {
+		const authData = await api({
+			path: '/authenticate',
+		});
+		// /authenticate returns organisationUuid flat at the top level; its
+		// `data` key holds OAuth authorization metadata, not identity.
+		// `/users/me` is not an option here: CLI tokens are app
+		// authorizations with no user record, so it resolves `me` to the
+		// authorization uuid and 404s.
+		if (authData?.organisationUuid) {
+			return authData.organisationUuid;
+		}
+	} catch {
+		// fall through to actionable error below
+	}
+
+	return null;
+}
+
+const ORGANISATION_RESOLUTION_ERROR = [
+	'The CLI could not resolve your Raisely organisation.',
+	'Try signing out and back in, then re-initialize this directory if needed:',
+	'    raisely logout',
+	'    raisely login',
+	'    raisely init',
+	'If you already have a .raisely.json here, make sure it includes organisationUuid (re-run raisely init to refresh it).',
+].join('\n');
+
 export async function createComponent({ name, apiUrl }, opts = {}) {
-	// fetch the organisation ID
-	const user = await api({
-		path: '/users/me',
-	});
+	const organisationUuid = await resolveOrganisationUuid();
+	if (!organisationUuid) {
+		throw ORGANISATION_RESOLUTION_ERROR;
+	}
 
 	return await api({
 		path: `/components?private=1`,
@@ -27,7 +62,7 @@ export async function createComponent({ name, apiUrl }, opts = {}) {
 		json: {
 			data: {
 				name,
-				organisationUuid: user.data.organisationUuid,
+				organisationUuid,
 			},
 		},
 	});
