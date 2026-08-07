@@ -51,12 +51,15 @@ async function checkCorrectOrganisation(orgUuid, opts) {
 				},
 			]);
 			if (response.confirm) {
+				// Continuing here would run the command against the
+				// organisation the user just declined, so abort rather than
+				// returning.
 				if (!authBody.userUuid) {
 					log(
 						'Your session does not identify a user, so the CLI cannot switch organisations for you. Switch organisation in the Raisely admin, then run raisely init again.',
 						'red'
 					);
-					return;
+					process.exit(-1);
 				}
 				const loader = ora(
 					'Switching to correct organisation ...'
@@ -74,7 +77,7 @@ async function checkCorrectOrganisation(orgUuid, opts) {
 					loader.succeed();
 				} catch (e) {
 					error(e, loader);
-					throw e;
+					process.exit(-1);
 				}
 			}
 		}
