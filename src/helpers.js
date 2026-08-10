@@ -87,8 +87,27 @@ export async function informLocalDev(config) {
 	const authData = await api({
 		path: '/authenticate',
 	});
-	const organisation = authData.data.organisation;
-	if (!organisation.private || !organisation.private.localDevelopment) {
+	// /authenticate carries identity flat at the top level but no organisation
+	// record, so the localDevelopment flag has to be read from the org itself.
+	const organisationUuid =
+		config?.organisationUuid || authData?.organisationUuid;
+
+	let organisation;
+	if (organisationUuid) {
+		try {
+			const orgResponse = await api({
+				path: `/organisations/${organisationUuid}?private=1`,
+			});
+			organisation = orgResponse?.data;
+		} catch (e) {
+			// No OAuth app scope grants reading an organisation record, so this
+			// is a 403 for any CLI login and only succeeds for admin tokens
+			// supplied via RAISELY_TOKEN. The flag is advisory, so skip the
+			// warning rather than blocking the command.
+		}
+	}
+
+	if (!organisation?.private?.localDevelopment) {
 		// this is fine, we can continue without warning
 		return true;
 	}

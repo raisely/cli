@@ -20,6 +20,7 @@ import {
 } from './actions/layout.js';
 
 import { uploadStyles } from './actions/campaigns.js';
+import { uploadPage } from './actions/pages.js';
 import {
 	updateComponentFile,
 	updateComponentConfig,
@@ -32,21 +33,80 @@ function startLoader(message, oraImpl = ora) {
 	return oraImpl(message).start();
 }
 
+/**
+ * Upload a single page JSON, applying the same guards as `raisely deploy`:
+ * the page must have a uuid and belong to a configured campaign.
+ */
+async function uploadChangedPage(
+	filenameRaw,
+	relative,
+	{ config, fsModule, uploadPageFn, oraFn, errorFn }
+) {
+	const loader = startLoader(`Saving ${relative}`, oraFn);
+
+	let pageData;
+	try {
+		pageData = JSON.parse(fsModule.readFileSync(filenameRaw, 'utf8'));
+	} catch (e) {
+		loader.fail(`${relative} is not valid JSON, skipping upload`);
+		return;
+	}
+
+	if (!pageData.uuid) {
+		loader.fail(`${relative} has no uuid, skipping upload`);
+		return;
+	}
+
+	const campaigns = config?.campaigns ?? [];
+	if (
+		!pageData.campaignUuid ||
+		!campaigns.includes(pageData.campaignUuid)
+	) {
+		loader.fail(
+			`${relative} does not belong to a configured campaign, skipping upload`
+		);
+		return;
+	}
+
+	try {
+		await uploadPageFn(pageData);
+		loader.succeed();
+	} catch (e) {
+		errorFn(e, loader);
+	}
+}
+
 export async function handleCampaignChange(
 	filenameRaw,
 	{
 		campaignsDir,
 		token,
+		config,
+		fsModule = fs,
 		uploadStylesFn = uploadStyles,
+		uploadPageFn = uploadPage,
 		validateCampaignSassFn = validateCampaignSass,
 		oraFn = ora,
+		errorFn = error,
 	} = {}
 ) {
 	const relative = path.relative(campaignsDir, filenameRaw);
 	const parts = relative.split(path.sep);
-	// Only handle stylesheet changes: <campaign-path>/stylesheets/...
-	if (parts.length < 3 || parts[1] !== 'stylesheets') return;
+	if (parts.length < 3) return;
 	const campaignPath = parts[0];
+
+	if (parts[1] === 'pages' && relative.endsWith('.json')) {
+		return await uploadChangedPage(filenameRaw, relative, {
+			config,
+			fsModule,
+			uploadPageFn,
+			oraFn,
+			errorFn,
+		});
+	}
+
+	// Anything else under a campaign other than stylesheets is not uploaded
+	if (parts[1] !== 'stylesheets') return;
 	const loader = startLoader(`Saving ${relative}`, oraFn);
 	const validation = await validateCampaignSassFn({
 		campaign: campaignPath,
@@ -143,9 +203,12 @@ export function registerStartWatchers(
 			await handleCampaignChange(filenameRaw, {
 				campaignsDir,
 				token: config.token,
+				config,
 				uploadStylesFn: dependencies.uploadStylesFn,
+				uploadPageFn: dependencies.uploadPageFn,
 				validateCampaignSassFn: dependencies.validateCampaignSassFn,
 				oraFn: dependencies.oraFn,
+				errorFn: dependencies.errorFn,
 			});
 		}
 	);
