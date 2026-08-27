@@ -55,13 +55,65 @@ export async function syncStyles() {
 	}
 }
 
-function pageFileName(page) {
-	const base =
-		page.name ||
-		(page.path && page.path !== '/'
-			? page.path.replace(/^\//, '').replace(/\//g, '-')
-			: 'home');
-	return `${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`;
+function pagePathBase(page) {
+	return page.path && page.path !== '/'
+		? page.path.replace(/^\//, '').replace(/\//g, '-')
+		: 'home';
+}
+
+/**
+ * Compute a unique local file name for every page in a campaign.
+ *
+ * `page.name` is only unique for template pages — every custom
+ * (page-builder) page shares the name "legacy", so naming files by
+ * `page.name` alone makes all custom pages overwrite each other into a
+ * single legacy.json. Whenever a name is shared by more than one page,
+ * fall back to the page's path instead.
+ *
+ * @param {Array<object>} pages Pages belonging to one campaign
+ * @returns {string[]} File name for each page, in the same order
+ */
+export function pageFileNames(pages) {
+	const nameCounts = new Map();
+	for (const page of pages) {
+		if (page.name) {
+			nameCounts.set(page.name, (nameCounts.get(page.name) || 0) + 1);
+		}
+	}
+
+	const sanitize = (base) => `${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`;
+
+	// First pass: pages with a unique name keep their name-based file.
+	// Reserving these up front keeps template filenames stable regardless
+	// of API order (a custom page at e.g. /profile must never take
+	// profile.json from the profile template page).
+	const used = new Set();
+	const fileNames = pages.map((page) => {
+		if (page.name && nameCounts.get(page.name) === 1) {
+			const fileName = sanitize(page.name);
+			used.add(fileName);
+			return fileName;
+		}
+		return null;
+	});
+
+	// Second pass: pages with a shared or missing name fall back to their
+	// path, with a short uuid suffix on any residual collision.
+	return fileNames.map((fileName, index) => {
+		if (fileName) {
+			return fileName;
+		}
+		const page = pages[index];
+		let candidate = sanitize(pagePathBase(page));
+		if (used.has(candidate) && page.uuid) {
+			candidate = candidate.replace(
+				/\.json$/,
+				`-${page.uuid.slice(0, 8)}.json`
+			);
+		}
+		used.add(candidate);
+		return candidate;
+	});
 }
 
 export async function syncPages() {
@@ -87,7 +139,8 @@ export async function syncPages() {
 				path: `/campaigns/${uuid}/pages?private=1&includeBody=1&limit=999`,
 			});
 
-			for (const page of pages.data) {
+			const fileNames = pageFileNames(pages.data);
+			for (const [index, page] of pages.data.entries()) {
 				const out = {
 					uuid: page.uuid,
 					path: page.path,
@@ -107,7 +160,7 @@ export async function syncPages() {
 				};
 
 				fs.writeFileSync(
-					path.join(pagesDir, pageFileName(page)),
+					path.join(pagesDir, fileNames[index]),
 					JSON.stringify(out, null, 4)
 				);
 			}
