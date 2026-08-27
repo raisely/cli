@@ -58,6 +58,22 @@ describe('pageFileNames', () => {
 		]);
 	});
 
+	test('template filenames are reserved regardless of API order', () => {
+		// A custom page at the literal path /profile must not take
+		// profile.json from the profile template page (path /:id), even
+		// when the API returns the custom page first.
+		const pages = [
+			{ uuid: 'cccccccc-3333', name: 'legacy', path: '/profile' },
+			{ uuid: 'dddddddd-4444', name: 'legacy', path: '/terms' },
+			{ uuid: 'eeeeeeee-5555', name: 'profile', path: '/:id' },
+		];
+		expect(pageFileNames(pages)).toEqual([
+			'profile-cccccccc.json',
+			'terms.json',
+			'profile.json',
+		]);
+	});
+
 	test('disambiguates residual file name collisions with a uuid suffix', () => {
 		const pages = [
 			{ uuid: 'aaaaaaaa-1111', name: 'legacy', path: '/promo!' },
