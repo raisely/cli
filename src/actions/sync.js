@@ -55,13 +55,43 @@ export async function syncStyles() {
 	}
 }
 
-function pageFileName(page) {
-	const base =
-		page.name ||
-		(page.path && page.path !== '/'
-			? page.path.replace(/^\//, '').replace(/\//g, '-')
-			: 'home');
-	return `${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`;
+function pagePathBase(page) {
+	return page.path && page.path !== '/'
+		? page.path.replace(/^\//, '').replace(/\//g, '-')
+		: 'home';
+}
+
+/**
+ * Compute a unique local file name for every page in a campaign.
+ *
+ * `page.name` is only unique for template pages — every custom
+ * (page-builder) page shares the name "legacy", so naming files by
+ * `page.name` alone makes all custom pages overwrite each other into a
+ * single legacy.json. Whenever a name is shared by more than one page,
+ * fall back to the page's path instead.
+ *
+ * @param {Array<object>} pages Pages belonging to one campaign
+ * @returns {string[]} File name for each page, in the same order
+ */
+export function pageFileNames(pages) {
+	const nameCounts = new Map();
+	for (const page of pages) {
+		if (page.name) {
+			nameCounts.set(page.name, (nameCounts.get(page.name) || 0) + 1);
+		}
+	}
+
+	const used = new Set();
+	return pages.map((page) => {
+		const nameIsUnique = page.name && nameCounts.get(page.name) === 1;
+		const base = nameIsUnique ? page.name : pagePathBase(page);
+		let fileName = `${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`;
+		if (used.has(fileName) && page.uuid) {
+			fileName = fileName.replace(/\.json$/, `-${page.uuid.slice(0, 8)}.json`);
+		}
+		used.add(fileName);
+		return fileName;
+	});
 }
 
 export async function syncPages() {
@@ -87,7 +117,8 @@ export async function syncPages() {
 				path: `/campaigns/${uuid}/pages?private=1&includeBody=1&limit=999`,
 			});
 
-			for (const page of pages.data) {
+			const fileNames = pageFileNames(pages.data);
+			for (const [index, page] of pages.data.entries()) {
 				const out = {
 					uuid: page.uuid,
 					path: page.path,
@@ -107,7 +138,7 @@ export async function syncPages() {
 				};
 
 				fs.writeFileSync(
-					path.join(pagesDir, pageFileName(page)),
+					path.join(pagesDir, fileNames[index]),
 					JSON.stringify(out, null, 4)
 				);
 			}
