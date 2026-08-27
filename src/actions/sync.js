@@ -81,16 +81,38 @@ export function pageFileNames(pages) {
 		}
 	}
 
+	const sanitize = (base) => `${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`;
+
+	// First pass: pages with a unique name keep their name-based file.
+	// Reserving these up front keeps template filenames stable regardless
+	// of API order (a custom page at e.g. /profile must never take
+	// profile.json from the profile template page).
 	const used = new Set();
-	return pages.map((page) => {
-		const nameIsUnique = page.name && nameCounts.get(page.name) === 1;
-		const base = nameIsUnique ? page.name : pagePathBase(page);
-		let fileName = `${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`;
-		if (used.has(fileName) && page.uuid) {
-			fileName = fileName.replace(/\.json$/, `-${page.uuid.slice(0, 8)}.json`);
+	const fileNames = pages.map((page) => {
+		if (page.name && nameCounts.get(page.name) === 1) {
+			const fileName = sanitize(page.name);
+			used.add(fileName);
+			return fileName;
 		}
-		used.add(fileName);
-		return fileName;
+		return null;
+	});
+
+	// Second pass: pages with a shared or missing name fall back to their
+	// path, with a short uuid suffix on any residual collision.
+	return fileNames.map((fileName, index) => {
+		if (fileName) {
+			return fileName;
+		}
+		const page = pages[index];
+		let candidate = sanitize(pagePathBase(page));
+		if (used.has(candidate) && page.uuid) {
+			candidate = candidate.replace(
+				/\.json$/,
+				`-${page.uuid.slice(0, 8)}.json`
+			);
+		}
+		used.add(candidate);
+		return candidate;
 	});
 }
 
