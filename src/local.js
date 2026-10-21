@@ -127,6 +127,78 @@ async function decodeProxyResponseBuffer(responseBuffer, proxyRes) {
 	return responseBuffer.toString('utf8');
 }
 
+// window.pageSchemas is set in the first large <script> in <body>. Inject after
+// that </script> but before later bundles (and before the small
+// `if (window.campaign)` script). Edge strips <!-- _footer_integrations_ -->
+// before HTML is sent, and injecting before </body> runs too late (React has
+// already read pageSchemas).
+const AFTER_CAMPAIGN_BOOTSTRAP =
+	/(<\/script>)(\s*<script>\s*if\s*\(\s*window\.campaign\s*\)\s*\{)/;
+
+/**
+ * Insert a generated <script> into the campaign HTML.
+ *
+ * The payload embeds page copy verbatim, so it can legitimately contain `$1`,
+ * `$&`, `` $` ``, `$'` or `$$` — for example the copy "less than $2 a day".
+ * Those sequences are special inside a String.prototype.replace REPLACEMENT
+ * STRING, so the payload must always be supplied via a replacer FUNCTION.
+ * Passing it as a template literal silently rewrites the payload and produces
+ * an unparseable <script> ("SyntaxError: Invalid or unexpected token").
+ */
+export function injectPageOverride(output, pageOverride) {
+	if (!pageOverride) {
+		return output;
+	}
+
+	if (AFTER_CAMPAIGN_BOOTSTRAP.test(output)) {
+		return output.replace(
+			AFTER_CAMPAIGN_BOOTSTRAP,
+			(match, bootstrapEnd, nextScript) =>
+				`${bootstrapEnd}${pageOverride}${nextScript}`
+		);
+	}
+
+	if (output.includes('<!-- _footer_integrations_ -->')) {
+		return output.replace(
+			'<!-- _footer_integrations_ -->',
+			() => `${pageOverride}\n<!-- _footer_integrations_ -->`
+		);
+	}
+
+	return output.replace('</body>', () => `${pageOverride}\n</body>`);
+}
+
+/**
+ * Build the proxy that serves the campaign locally.
+ *
+ * `onHtml` receives the decoded upstream body and returns the HTML to send.
+ *
+ * NOTE: the response handler MUST be registered under `on: { proxyRes }`.
+ * http-proxy-middleware v3 ignores the v2 `onProxyRes` option, and because
+ * `selfHandleResponse` is still honoured nothing would ever write to the
+ * response — every proxied request would hang until the client times out.
+ */
+export function createCampaignProxy({ target, secure, onHtml }) {
+	return createProxyMiddleware({
+		target,
+		changeOrigin: true,
+		secure,
+		autoRewrite: true,
+		cookieDomainRewrite: true,
+		followRedirects: true,
+		selfHandleResponse: true,
+		on: {
+			proxyRes: responseInterceptor(
+				async (responseBuffer, proxyRes, req, res) =>
+					onHtml(
+						await decodeProxyResponseBuffer(responseBuffer, proxyRes),
+						{ proxyRes, req, res }
+					)
+			),
+		},
+	});
+}
+
 function buildCssErrorComment(errorMessage) {
 	return `/*\n${errorMessage}\n*/`;
 }
@@ -385,90 +457,53 @@ export default async function start(options = {}) {
 	// set up the Raisely proxy
 	app.use(
 		'/',
-		createProxyMiddleware({
+		createCampaignProxy({
 			target,
-			changeOrigin: true,
 			secure: !config.proxyUrl,
-			autoRewrite: true,
-			cookieDomainRewrite: true,
-			followRedirects: true,
-			selfHandleResponse: true,
-			onProxyRes: responseInterceptor(
-				async (responseBuffer, proxyRes, req, res) => {
-					const response = await decodeProxyResponseBuffer(
-						responseBuffer,
-						proxyRes
+			onHtml: async (response) => {
+				let pageOverride = '';
+				if (response.includes('window.pageSchemas')) {
+					try {
+						const compiledMap = await compileAllLocalPages({
+							campaignUuid,
+						});
+						pageOverride = buildPageOverrideScript(compiledMap);
+					} catch (e) {
+						console.error(e);
+					}
+				}
+
+				// Match by path so it works regardless of whether the upstream
+				// embeds api.raisely.com, api.raisely.test:2999, or any other host.
+				const stylesPath = `/v3/campaigns/${campaignUuid}/styles.css`;
+				const componentsPath = `/v3/campaigns/${campaignUuid}/components.js`;
+				const localBase = `http://localhost:${port}`;
+				const upstreamUrlRe = (path) =>
+					new RegExp(
+						`https?://[^"'\\s)]+${path.replace(/[/.]/g, '\\$&')}`,
+						'g'
 					);
 
-					let pageOverride = '';
-					if (response.includes('window.pageSchemas')) {
-						try {
-							const compiledMap = await compileAllLocalPages({
-								campaignUuid,
-							});
-							pageOverride = buildPageOverrideScript(compiledMap);
-						} catch (e) {
-							console.error(e);
-						}
-					}
+				let output = response
+					.replace(upstreamUrlRe(stylesPath), `${localBase}${stylesPath}`)
+					.replace(
+						upstreamUrlRe(componentsPath),
+						`${localBase}${componentsPath}`
+					);
 
-					// Match by path so it works regardless of whether the upstream
-					// embeds api.raisely.com, api.raisely.test:2999, or any other host.
-					const stylesPath = `/v3/campaigns/${campaignUuid}/styles.css`;
-					const componentsPath = `/v3/campaigns/${campaignUuid}/components.js`;
-					const localBase = `http://localhost:${port}`;
-					const upstreamUrlRe = (path) =>
-						new RegExp(
-							`https?://[^"'\\s)]+${path.replace(/[/.]/g, '\\$&')}`,
-							'g'
-						);
+				output = injectPageOverride(output, pageOverride);
 
-					let output = response
-						.replace(upstreamUrlRe(stylesPath), `${localBase}${stylesPath}`)
-						.replace(
-							upstreamUrlRe(componentsPath),
-							`${localBase}${componentsPath}`
-						);
+				const apiRedirectScript = buildApiRedirectScript(config.apiUrl);
+				if (apiRedirectScript) {
+					output = output.replace(
+						/<head([^>]*)>/i,
+						(match, attrs) => `<head${attrs}>${apiRedirectScript}`
+					);
+				}
 
-					// window.pageSchemas is set in the first large <script> in <body>.
-					// Inject after that </script> but before later bundles (and before the small
-					// `if (window.campaign)` script). Edge strips <!-- _footer_integrations_ -->
-					// before HTML is sent, and injecting before </body> runs too late (React
-					// already read pageSchemas).
-					if (pageOverride) {
-						const afterCampaignBootstrap =
-							/(<\/script>)(\s*<script>\s*if\s*\(\s*window\.campaign\s*\)\s*\{)/;
-						if (afterCampaignBootstrap.test(output)) {
-							output = output.replace(
-								afterCampaignBootstrap,
-								`$1${pageOverride}$2`
-							);
-						} else if (
-							output.includes('<!-- _footer_integrations_ -->')
-						) {
-							output = output.replace(
-								'<!-- _footer_integrations_ -->',
-								`${pageOverride}\n<!-- _footer_integrations_ -->`
-							);
-						} else {
-							output = output.replace(
-								'</body>',
-								`${pageOverride}\n</body>`
-							);
-						}
-					}
-
-					const apiRedirectScript = buildApiRedirectScript(config.apiUrl);
-					if (apiRedirectScript) {
-						output = output.replace(
-							/<head([^>]*)>/i,
-							`<head$1>${apiRedirectScript}`
-						);
-					}
-
-					return output.replace(
-						'</head>',
-						`
+				return output.replace(
+					'</head>',
+					() => `
 									<script>
 										const check = () => {
 											fetch('/reload')
@@ -485,9 +520,8 @@ export default async function start(options = {}) {
 										var raiselyReload = setInterval(check, 500);
 									</script>
 								</head>`
-					);
-				}
-			),
+				);
+			},
 		})
 	);
 
