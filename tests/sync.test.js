@@ -100,6 +100,19 @@ describe('pageFileNames', () => {
 		]);
 	});
 
+	test('treats file names that differ only by case as a collision', () => {
+		const pages = [
+			{ uuid: 'aaaaaaaa-1111', name: 'legacy', path: '/magiclink' },
+			{ uuid: 'bbbbbbbb-2222', name: 'legacy', path: '/terms' },
+			{ uuid: 'cccccccc-3333', name: 'magicLink', path: '/magic-link' },
+		];
+		expect(pageFileNames(pages)).toEqual([
+			'magiclink-aaaaaaaa.json',
+			'terms.json',
+			'magicLink.json',
+		]);
+	});
+
 	test('disambiguates residual file name collisions with a uuid suffix', () => {
 		const pages = [
 			{ uuid: 'aaaaaaaa-1111', name: 'legacy', path: '/promo!' },
@@ -153,6 +166,22 @@ describe('page file cleanup', () => {
 			'no-uuid.json',
 			'notes.txt',
 		]);
+	});
+
+	test('removeStalePageFiles keeps one file when names differ only by case', () => {
+		// On case-insensitive filesystems the second write lands in
+		// Profile.json, so both names point to the same file.
+		writeJson(tmpDir, 'Profile.json', { uuid: 'u-profile', body: 'old' });
+		writeJson(tmpDir, 'profile.json', { uuid: 'u-profile', body: 'new' });
+
+		removeStalePageFiles(tmpDir, new Map([['u-profile', 'profile.json']]));
+
+		const files = fs.readdirSync(tmpDir);
+		expect(files).toHaveLength(1);
+		expect(files[0].toLowerCase()).toBe('profile.json');
+		expect(
+			JSON.parse(fs.readFileSync(path.join(tmpDir, files[0]), 'utf8'))
+		).toEqual({ uuid: 'u-profile', body: 'new' });
 	});
 
 	test('syncPages replaces an old legacy.json with path-named files', async () => {

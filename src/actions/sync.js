@@ -83,16 +83,23 @@ export function pageFileNames(pages) {
 
 	const sanitize = (base) => `${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`;
 
+	// Compare names case-insensitively: on macOS and Windows, magicLink.json
+	// and magiclink.json are the same file.
+	const used = new Set();
+	const isUsed = (fileName) => used.has(fileName.toLowerCase());
+	const markUsed = (fileName) => used.add(fileName.toLowerCase());
+
 	// First pass: pages with a unique name keep their name-based file.
 	// Reserving these up front keeps template filenames stable regardless
 	// of API order (a custom page at e.g. /profile must never take
 	// profile.json from the profile template page).
-	const used = new Set();
 	const fileNames = pages.map((page) => {
 		if (page.name && nameCounts.get(page.name) === 1) {
 			const fileName = sanitize(page.name);
-			used.add(fileName);
-			return fileName;
+			if (!isUsed(fileName)) {
+				markUsed(fileName);
+				return fileName;
+			}
 		}
 		return null;
 	});
@@ -105,13 +112,13 @@ export function pageFileNames(pages) {
 		}
 		const page = pages[index];
 		let candidate = sanitize(pagePathBase(page));
-		if (used.has(candidate) && page.uuid) {
+		if (isUsed(candidate) && page.uuid) {
 			candidate = candidate.replace(
 				/\.json$/,
 				`-${page.uuid.slice(0, 8)}.json`
 			);
 		}
-		used.add(candidate);
+		markUsed(candidate);
 		return candidate;
 	});
 }
@@ -141,12 +148,28 @@ export function removeStalePageFiles(pagesDir, fileNameByUuid) {
 		}
 
 		const current = fileNameByUuid.get(uuid);
-		if (current && current !== entry.name) {
+		if (
+			current &&
+			current !== entry.name &&
+			!isSameFile(filePath, path.join(pagesDir, current))
+		) {
 			fs.unlinkSync(filePath);
 			removed.push(entry.name);
 		}
 	}
 	return removed;
+}
+
+// On case-insensitive filesystems, writing profile.json can land in an
+// existing Profile.json, so the names differ but the file is the same.
+function isSameFile(a, b) {
+	try {
+		const statA = fs.statSync(a);
+		const statB = fs.statSync(b);
+		return statA.dev === statB.dev && statA.ino === statB.ino;
+	} catch {
+		return false;
+	}
 }
 
 export async function syncPages() {
