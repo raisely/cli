@@ -1,6 +1,32 @@
-import { describe, expect, test } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { pageFileNames } from '../src/actions/sync.js';
+const mocks = vi.hoisted(() => ({
+	api: vi.fn(),
+	loadConfig: vi.fn(),
+}));
+
+vi.mock('../src/actions/api.js', () => ({
+	default: mocks.api,
+}));
+
+vi.mock('../src/config.js', () => ({
+	loadConfig: mocks.loadConfig,
+}));
+
+vi.mock('ora', () => ({
+	default: () => ({
+		start: () => ({ succeed: vi.fn(), fail: vi.fn() }),
+	}),
+}));
+
+import {
+	pageFileNames,
+	removeStalePageFiles,
+	syncPages,
+} from '../src/actions/sync.js';
 
 describe('pageFileNames', () => {
 	test('names template pages by their unique name', () => {
@@ -83,5 +109,110 @@ describe('pageFileNames', () => {
 			'promo_.json',
 			'promo_-bbbbbbbb.json',
 		]);
+	});
+});
+
+describe('page file cleanup', () => {
+	let tmpDir;
+
+	const writeJson = (dir, name, value) =>
+		fs.writeFileSync(path.join(dir, name), JSON.stringify(value));
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raisely-sync-'));
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test('removeStalePageFiles removes only old files of synced pages', () => {
+		writeJson(tmpDir, 'magicLink.json', { uuid: 'a0a04680-1111' });
+		writeJson(tmpDir, 'magic-link-a0a04680.json', {
+			uuid: 'a0a04680-1111',
+		});
+		writeJson(tmpDir, 'archived.json', { uuid: 'not-synced' });
+		writeJson(tmpDir, 'no-uuid.json', { title: 'Draft' });
+		fs.writeFileSync(path.join(tmpDir, 'broken.json'), '{ not json');
+		fs.writeFileSync(path.join(tmpDir, 'notes.txt'), 'a0a04680-1111');
+		fs.mkdirSync(path.join(tmpDir, 'nested.json'));
+
+		const removed = removeStalePageFiles(
+			tmpDir,
+			new Map([['a0a04680-1111', 'magic-link-a0a04680.json']])
+		);
+
+		expect(removed).toEqual(['magicLink.json']);
+		expect(fs.readdirSync(tmpDir).sort()).toEqual([
+			'archived.json',
+			'broken.json',
+			'magic-link-a0a04680.json',
+			'nested.json',
+			'no-uuid.json',
+			'notes.txt',
+		]);
+	});
+
+	test('syncPages replaces an old legacy.json with path-named files', async () => {
+		const pagesDir = path.join(tmpDir, 'campaigns', 'my-campaign', 'pages');
+		fs.mkdirSync(pagesDir, { recursive: true });
+		writeJson(pagesDir, 'legacy.json', {
+			uuid: 'u-renamed',
+			body: 'stale content',
+		});
+		writeJson(pagesDir, 'home.json', { uuid: 'u-home', body: 'old home' });
+		writeJson(pagesDir, 'deleted-page.json', { uuid: 'u-deleted' });
+		fs.writeFileSync(path.join(pagesDir, 'scratch.json'), 'not json');
+
+		vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
+		mocks.loadConfig.mockResolvedValue({ campaigns: ['campaign-uuid'] });
+		mocks.api.mockImplementation(async ({ path: apiPath }) => {
+			if (apiPath.startsWith('/campaigns/campaign-uuid/pages')) {
+				return {
+					data: [
+						{
+							uuid: 'u-renamed',
+							name: 'legacy',
+							path: '/renamed-home-page',
+							body: 'fresh content',
+						},
+						{ uuid: 'u-terms', name: 'legacy', path: '/terms' },
+						{
+							uuid: 'u-home',
+							name: 'home',
+							path: '/',
+							body: 'new home',
+						},
+					],
+				};
+			}
+			return { data: { path: 'my-campaign' } };
+		});
+
+		await syncPages();
+
+		expect(fs.readdirSync(pagesDir).sort()).toEqual([
+			'deleted-page.json',
+			'home.json',
+			'renamed-home-page.json',
+			'scratch.json',
+			'terms.json',
+		]);
+		const renamed = JSON.parse(
+			fs.readFileSync(
+				path.join(pagesDir, 'renamed-home-page.json'),
+				'utf8'
+			)
+		);
+		expect(renamed).toMatchObject({
+			uuid: 'u-renamed',
+			body: 'fresh content',
+		});
+		const home = JSON.parse(
+			fs.readFileSync(path.join(pagesDir, 'home.json'), 'utf8')
+		);
+		expect(home).toMatchObject({ uuid: 'u-home', body: 'new home' });
 	});
 });

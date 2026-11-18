@@ -116,6 +116,39 @@ export function pageFileNames(pages) {
 	});
 }
 
+/**
+ * Delete page files left behind under an old name.
+ *
+ * A file is removed only when its uuid was part of this sync and the page
+ * was written under a different file name. Files for pages that weren't
+ * synced, and files that aren't valid JSON, are kept.
+ *
+ * @param {string} pagesDir Directory holding the campaign's page files
+ * @param {Map<string, string>} fileNameByUuid File name written for each synced page uuid
+ * @returns {string[]} File names that were removed
+ */
+export function removeStalePageFiles(pagesDir, fileNameByUuid) {
+	const removed = [];
+	for (const entry of fs.readdirSync(pagesDir, { withFileTypes: true })) {
+		if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+
+		const filePath = path.join(pagesDir, entry.name);
+		let uuid;
+		try {
+			uuid = JSON.parse(fs.readFileSync(filePath, 'utf8'))?.uuid;
+		} catch {
+			continue;
+		}
+
+		const current = fileNameByUuid.get(uuid);
+		if (current && current !== entry.name) {
+			fs.unlinkSync(filePath);
+			removed.push(entry.name);
+		}
+	}
+	return removed;
+}
+
 export async function syncPages() {
 	const config = await loadConfig();
 
@@ -140,6 +173,7 @@ export async function syncPages() {
 			});
 
 			const fileNames = pageFileNames(pages.data);
+			const fileNameByUuid = new Map();
 			for (const [index, page] of pages.data.entries()) {
 				const out = {
 					uuid: page.uuid,
@@ -163,7 +197,10 @@ export async function syncPages() {
 					path.join(pagesDir, fileNames[index]),
 					JSON.stringify(out, null, 4)
 				);
+				fileNameByUuid.set(page.uuid, fileNames[index]);
 			}
+
+			removeStalePageFiles(pagesDir, fileNameByUuid);
 		}
 		loader.succeed();
 	} catch (e) {
