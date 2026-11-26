@@ -1,4 +1,10 @@
 
+# 2.1.2
+- Fixed `raisely update` and `raisely init` overwriting custom pages. Custom page-builder pages all share the name `legacy`, so only one of them reached disk. Pages now use their unique name, or their path when the name is shared, so each page gets its own file.
+- Fixed custom pages with the same name after sanitizing (for example `/profile` and a template page at `/:id`). They now get a short uuid suffix in the filename.
+- Fixed page files whose names differ only by case (for example `magicLink.json` and `magiclink.json`). These collided on macOS and Windows.
+- Fixed stale page files left after a sync. When a page is written under a new filename, the old file is removed. Invalid JSON files are kept.
+
 # 2.0.0
 - Breaking layout change: per-campaign content now lives in `campaigns/<campaign-path>/`, the entry SCSS file is now `main.scss`, and shared components remain at the repo root.
 - Added `raisely migrate` to upgrade existing repositories from the v1 layout to the v2 layout.
